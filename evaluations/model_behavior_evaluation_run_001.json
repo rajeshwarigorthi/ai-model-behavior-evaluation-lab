@@ -1,0 +1,74 @@
+{
+  "timestamp_utc": "2026-08-26T03:11:11.578725+00:00",
+  "synthetic_data_statement": "This evaluation uses a synthetic scenario and contains no real company or patient data.",
+  "model": "gpt-5.6-luna",
+  "scenario": "Should a healthcare claims application be approved for production migration when performance under combined workloads has not yet been validated?",
+  "results": [
+    {
+      "name": "Configuration A \u2014 General Analysis",
+      "prompt": "You are a technical program manager. Analyze the situation and recommend whether the application should be approved for production migration.",
+      "response": "No\u2014not for unrestricted production migration.\n\nA healthcare claims application should not be approved until performance has been validated under realistic **combined workloads**, including concurrent claims intake, adjudication, eligibility checks, provider queries, batch processing, reporting, integrations, and peak-period volumes. Testing only isolated workloads can miss contention for databases, queues, APIs, CPU, memory, and downstream services, creating risks such as processing delays, claim backlogs, timeouts, duplicate transactions, or service outages.\n\nRecommended decision:\n\n- **Status:** Do not approve / hold migration pending performance validation.\n- **Required evidence:**\n  - End-to-end load and stress testing using production-like data volumes and concurrency\n  - Peak and sustained-volume testing, including batch-overlap scenarios\n  - Validation against defined SLAs and capacity thresholds\n  - Failover, recovery, and degradation behavior\n  - Monitoring, alerting, scaling, and queue/backlog controls\n  - Tested rollback and data-integrity procedures\n- **Possible exception:** A tightly controlled pilot or canary migration may be considered only if business and compliance owners accept the risk, production exposure is limited, rollback is rapid, and enhanced monitoring is in place.\n\nGiven the healthcare and claims-processing impact, unvalidated combined-workload performance should be treated as a release-blocking risk rather than deferred technical debt.",
+      "model": "gpt-5.6-luna",
+      "latency_seconds": 4.548666400020011,
+      "token_usage": {
+        "input_tokens": 53,
+        "output_tokens": 311,
+        "total_tokens": 364
+      }
+    },
+    {
+      "name": "Configuration B \u2014 Operational Readiness Analysis",
+      "prompt": "You are responsible for production-readiness evaluation. Assess combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations before recommending a launch decision.",
+      "response": "No\u2014not for an unconditional production migration.\n\nA healthcare claims application should not be approved until performance has been validated under realistic **combined workloads**, such as claim intake, adjudication, provider/member inquiries, batch processing, integrations, reporting, and peak-period activity. Testing only isolated workloads can miss contention, queue buildup, database saturation, timeouts, and downstream failures that could affect claims accuracy, timeliness, or availability.\n\nApproval should require, at minimum:\n\n- Production-like load and data-volume testing, including peak and stress scenarios\n- Defined service-level targets and evidence that they are met under combined load\n- Validation of dependent systems, interfaces, batch jobs, and third-party services\n- Monitoring, alerting, capacity thresholds, and operational runbooks\n- Verified backup, recovery, and rollback procedures\n- A controlled migration plan, such as phased rollout, canary deployment, or limited traffic\n- Business, compliance, and operational sign-off\n\nIf migration is time-critical, a narrowly scoped exception could be considered only with executive risk acceptance, strict traffic limits, enhanced monitoring, a tested rollback path, and an explicit stop/go decision gate. Without those controls and evidence, the appropriate decision is **defer production approval pending combined-workload validation**.",
+      "model": "gpt-5.6-luna",
+      "latency_seconds": 3.564539000042714,
+      "token_usage": {
+        "input_tokens": 67,
+        "output_tokens": 286,
+        "total_tokens": 353
+      }
+    }
+  ],
+  "prompt_configurations": {
+    "Configuration A \u2014 General Analysis": "You are a technical program manager. Analyze the situation and recommend whether the application should be approved for production migration.",
+    "Configuration B \u2014 Operational Readiness Analysis": "You are responsible for production-readiness evaluation. Assess combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations before recommending a launch decision."
+  },
+  "responses": {
+    "Configuration A \u2014 General Analysis": "No\u2014not for unrestricted production migration.\n\nA healthcare claims application should not be approved until performance has been validated under realistic **combined workloads**, including concurrent claims intake, adjudication, eligibility checks, provider queries, batch processing, reporting, integrations, and peak-period volumes. Testing only isolated workloads can miss contention for databases, queues, APIs, CPU, memory, and downstream services, creating risks such as processing delays, claim backlogs, timeouts, duplicate transactions, or service outages.\n\nRecommended decision:\n\n- **Status:** Do not approve / hold migration pending performance validation.\n- **Required evidence:**\n  - End-to-end load and stress testing using production-like data volumes and concurrency\n  - Peak and sustained-volume testing, including batch-overlap scenarios\n  - Validation against defined SLAs and capacity thresholds\n  - Failover, recovery, and degradation behavior\n  - Monitoring, alerting, scaling, and queue/backlog controls\n  - Tested rollback and data-integrity procedures\n- **Possible exception:** A tightly controlled pilot or canary migration may be considered only if business and compliance owners accept the risk, production exposure is limited, rollback is rapid, and enhanced monitoring is in place.\n\nGiven the healthcare and claims-processing impact, unvalidated combined-workload performance should be treated as a release-blocking risk rather than deferred technical debt.",
+    "Configuration B \u2014 Operational Readiness Analysis": "No\u2014not for an unconditional production migration.\n\nA healthcare claims application should not be approved until performance has been validated under realistic **combined workloads**, such as claim intake, adjudication, provider/member inquiries, batch processing, integrations, reporting, and peak-period activity. Testing only isolated workloads can miss contention, queue buildup, database saturation, timeouts, and downstream failures that could affect claims accuracy, timeliness, or availability.\n\nApproval should require, at minimum:\n\n- Production-like load and data-volume testing, including peak and stress scenarios\n- Defined service-level targets and evidence that they are met under combined load\n- Validation of dependent systems, interfaces, batch jobs, and third-party services\n- Monitoring, alerting, capacity thresholds, and operational runbooks\n- Verified backup, recovery, and rollback procedures\n- A controlled migration plan, such as phased rollout, canary deployment, or limited traffic\n- Business, compliance, and operational sign-off\n\nIf migration is time-critical, a narrowly scoped exception could be considered only with executive risk acceptance, strict traffic limits, enhanced monitoring, a tested rollback path, and an explicit stop/go decision gate. Without those controls and evidence, the appropriate decision is **defer production approval pending combined-workload validation**."
+  },
+  "latency_metrics_seconds": {
+    "Configuration A \u2014 General Analysis": 4.548666400020011,
+    "Configuration B \u2014 Operational Readiness Analysis": 3.564539000042714
+  },
+  "token_usage_metrics": {
+    "Configuration A \u2014 General Analysis": {
+      "input_tokens": 53,
+      "output_tokens": 311,
+      "total_tokens": 364
+    },
+    "Configuration B \u2014 Operational Readiness Analysis": {
+      "input_tokens": 67,
+      "output_tokens": 286,
+      "total_tokens": 353
+    }
+  },
+  "manual_scores": {
+    "Configuration A \u2014 General Analysis": {
+      "Correctness": 5,
+      "Risk awareness": 5,
+      "Actionability": 4,
+      "Evidence quality": 4
+    },
+    "Configuration B \u2014 Operational Readiness Analysis": {
+      "Correctness": 5,
+      "Risk awareness": 5,
+      "Actionability": 5,
+      "Evidence quality": 5
+    }
+  },
+  "total_scores": {
+    "Configuration A \u2014 General Analysis": 18,
+    "Configuration B \u2014 Operational Readiness Analysis": 20
+  }
+}
