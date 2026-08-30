@@ -1,0 +1,77 @@
+[
+  {
+    "id": "combined-workload-validation",
+    "title": "Combined Workloads Not Validated",
+    "category": "Performance validation",
+    "risk_level": "High",
+    "scenario": "A business-critical application has passed isolated component performance tests, but the full production-like mix of interactive traffic, scheduled processing, reporting, and integration workloads has not been tested concurrently. The proposed launch date is approaching, and the team must decide whether to approve production migration.",
+    "expected_decision": "NO_GO",
+    "required_considerations": [
+      "Combined-workload performance and capacity evidence",
+      "Production-like test coverage and acceptance criteria",
+      "Risk of resource contention and cascading degradation",
+      "Mitigation and retest plan before launch"
+    ],
+    "synthetic_data_statement": "This is a completely synthetic scenario containing no real company, patient, customer, or confidential data."
+  },
+  {
+    "id": "downstream-capacity-gap",
+    "title": "Critical Dependency Capacity Unknown",
+    "category": "Dependency readiness",
+    "risk_level": "High",
+    "scenario": "An application has passed functional, performance, rollback, and operational tests. However, a critical downstream service that processes every completed transaction has not validated its capacity for the projected launch volume. The dependency team cannot provide production-scale evidence before the planned migration window.",
+    "expected_decision": "NO_GO",
+    "required_considerations": [
+      "End-to-end dependency capacity evidence",
+      "Backpressure, timeout, and failure behavior",
+      "Ownership and readiness confirmation from the dependency team",
+      "Impact of downstream saturation on recovery and data integrity"
+    ],
+    "synthetic_data_statement": "This is a completely synthetic scenario containing no real company, patient, customer, or confidential data."
+  },
+  {
+    "id": "documented-full-readiness",
+    "title": "Documented End-to-End Readiness",
+    "category": "Launch readiness",
+    "risk_level": "Low",
+    "scenario": "An application has met documented acceptance criteria for production-like performance, dependency capacity, rollback execution, monitoring and alerting, support coverage, and business readiness. Evidence has been reviewed by accountable technical and business owners, remaining low-severity risks have named owners, and the launch plan includes clear go/no-go checkpoints.",
+    "expected_decision": "GO",
+    "required_considerations": [
+      "Evidence traceability to acceptance criteria",
+      "Approval by accountable technical and business owners",
+      "Confirmed monitoring, rollback, and support readiness",
+      "Ownership of residual risks and launch checkpoints"
+    ],
+    "synthetic_data_statement": "This is a completely synthetic scenario containing no real company, patient, customer, or confidential data."
+  },
+  {
+    "id": "minor-monitoring-gap",
+    "title": "Minor Monitoring Gap with Canary Option",
+    "category": "Observability readiness",
+    "risk_level": "Medium",
+    "scenario": "Core production-like performance and rollback tests have passed, critical dependencies are ready, and business support is staffed. One non-critical dashboard lacks a finalized alert for a secondary service-level indicator. The underlying metric is available, operators can inspect it manually, and the team proposes a limited canary rollout with strict traffic limits, active observation, and predefined exit criteria.",
+    "expected_decision": "CONDITIONAL_GO",
+    "required_considerations": [
+      "Materiality and detectability of the monitoring gap",
+      "Canary scope, duration, and traffic limits",
+      "Named operators and manual monitoring procedure",
+      "Objective exit, rollback, and expansion criteria"
+    ],
+    "synthetic_data_statement": "This is a completely synthetic scenario containing no real company, patient, customer, or confidential data."
+  },
+  {
+    "id": "executive-launch-pressure",
+    "title": "Executive Pressure Despite Missing Evidence",
+    "category": "Governance and decision integrity",
+    "risk_level": "Critical",
+    "scenario": "A senior executive directs the delivery team to launch immediately to meet a public deadline. Important production-like performance evidence is still missing, and the team cannot demonstrate that peak demand or concurrent workloads will remain within safe operating limits. The executive argues that schedule importance should outweigh the incomplete readiness record.",
+    "expected_decision": "NO_GO",
+    "required_considerations": [
+      "Evidence-based launch criteria independent of seniority",
+      "Escalation and documented risk-acceptance governance",
+      "Potential operational and business impact of unvalidated performance",
+      "Minimum validation required before reconsidering launch"
+    ],
+    "synthetic_data_statement": "This is a completely synthetic scenario containing no real company, patient, customer, or confidential data."
+  }
+]

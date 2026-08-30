@@ -1,0 +1,90 @@
+{
+  "run_id": "run-20260830T202903Z-a13183c4",
+  "scenario_id": "documented-full-readiness",
+  "scenario_title": "Documented End-to-End Readiness",
+  "scenario_category": "Launch readiness",
+  "scenario_risk_level": "Low",
+  "expected_decision": "GO",
+  "required_considerations": [
+    "Evidence traceability to acceptance criteria",
+    "Approval by accountable technical and business owners",
+    "Confirmed monitoring, rollback, and support readiness",
+    "Ownership of residual risks and launch checkpoints"
+  ],
+  "prompt_version_a": "v1-general",
+  "prompt_version_b": "v1-operational",
+  "model": "gpt-5.6-luna",
+  "reasoning_effort": "low",
+  "max_output_tokens": 700,
+  "timestamp_utc": "2026-08-30T20:29:03.588716+00:00",
+  "synthetic_data_statement": "This is a completely synthetic scenario containing no real company, patient, customer, or confidential data.",
+  "scenario": "An application has met documented acceptance criteria for production-like performance, dependency capacity, rollback execution, monitoring and alerting, support coverage, and business readiness. Evidence has been reviewed by accountable technical and business owners, remaining low-severity risks have named owners, and the launch plan includes clear go/no-go checkpoints.",
+  "results": [
+    {
+      "name": "Configuration A \u2014 General Analysis",
+      "prompt": "You are a technical program manager. Analyze the situation and recommend whether the application should be approved for production migration.",
+      "response": "**Recommendation: Approve for production migration.**\n\nThe application has satisfied the documented acceptance criteria across the key readiness areas:\n\n- Production-like performance validated\n- Dependencies confirmed to have sufficient capacity\n- Rollback procedure executed successfully\n- Monitoring and alerting in place\n- Support coverage established\n- Business readiness confirmed\n- Evidence reviewed and accepted by accountable technical and business owners\n- Remaining low-severity risks assigned to named owners\n- Launch plan includes explicit go/no-go checkpoints\n\nProceed with the migration under the approved launch plan, subject to:\n\n1. Confirming all pre-launch checkpoints are green.\n2. Verifying on-call and support coverage immediately before release.\n3. Actively monitoring agreed success metrics during and after migration.\n4. Escalating or initiating rollback if predefined thresholds are breached.\n5. Tracking the remaining low-severity risks to closure after launch.\n\nNo material readiness gap is evident that should block production migration.",
+      "model": "gpt-5.6-luna",
+      "latency_seconds": 7.926282400032505,
+      "token_usage": {
+        "input_tokens": 93,
+        "output_tokens": 213,
+        "total_tokens": 306
+      }
+    },
+    {
+      "name": "Configuration B \u2014 Operational Readiness Analysis",
+      "prompt": "You are responsible for production-readiness evaluation. Assess combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations before recommending a launch decision.",
+      "response": "**Recommendation: Go for launch**, subject to completion of the defined go/no-go checkpoints.\n\nThe evidence indicates production readiness across the key areas:\n\n- **Combined-workload performance:** Meets documented production-like acceptance criteria.\n- **Dependency capacity:** Capacity has been validated with no unresolved blocking constraints.\n- **Rollback readiness:** Rollback execution has been tested and is operationally viable.\n- **Monitoring and alerting:** Required observability and alert coverage are in place.\n- **Operational support:** Support coverage and ownership are established.\n- **Business readiness:** Accountable business and technical owners have reviewed the evidence.\n- **Residual risk:** Remaining risks are low severity and have named owners.\n- **Decision governance:** The launch plan includes explicit go/no-go checkpoints.\n\nProceed with launch under the approved plan, preserving the checkpoint gates and ensuring that owners actively monitor the residual risks during rollout. If any checkpoint fails, rollback criteria should be invoked rather than relying on informal risk acceptance.",
+      "model": "gpt-5.6-luna",
+      "latency_seconds": 3.216985800070688,
+      "token_usage": {
+        "input_tokens": 107,
+        "output_tokens": 229,
+        "total_tokens": 336
+      }
+    }
+  ],
+  "prompt_configurations": {
+    "Configuration A \u2014 General Analysis": "You are a technical program manager. Analyze the situation and recommend whether the application should be approved for production migration.",
+    "Configuration B \u2014 Operational Readiness Analysis": "You are responsible for production-readiness evaluation. Assess combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations before recommending a launch decision."
+  },
+  "responses": {
+    "Configuration A \u2014 General Analysis": "**Recommendation: Approve for production migration.**\n\nThe application has satisfied the documented acceptance criteria across the key readiness areas:\n\n- Production-like performance validated\n- Dependencies confirmed to have sufficient capacity\n- Rollback procedure executed successfully\n- Monitoring and alerting in place\n- Support coverage established\n- Business readiness confirmed\n- Evidence reviewed and accepted by accountable technical and business owners\n- Remaining low-severity risks assigned to named owners\n- Launch plan includes explicit go/no-go checkpoints\n\nProceed with the migration under the approved launch plan, subject to:\n\n1. Confirming all pre-launch checkpoints are green.\n2. Verifying on-call and support coverage immediately before release.\n3. Actively monitoring agreed success metrics during and after migration.\n4. Escalating or initiating rollback if predefined thresholds are breached.\n5. Tracking the remaining low-severity risks to closure after launch.\n\nNo material readiness gap is evident that should block production migration.",
+    "Configuration B \u2014 Operational Readiness Analysis": "**Recommendation: Go for launch**, subject to completion of the defined go/no-go checkpoints.\n\nThe evidence indicates production readiness across the key areas:\n\n- **Combined-workload performance:** Meets documented production-like acceptance criteria.\n- **Dependency capacity:** Capacity has been validated with no unresolved blocking constraints.\n- **Rollback readiness:** Rollback execution has been tested and is operationally viable.\n- **Monitoring and alerting:** Required observability and alert coverage are in place.\n- **Operational support:** Support coverage and ownership are established.\n- **Business readiness:** Accountable business and technical owners have reviewed the evidence.\n- **Residual risk:** Remaining risks are low severity and have named owners.\n- **Decision governance:** The launch plan includes explicit go/no-go checkpoints.\n\nProceed with launch under the approved plan, preserving the checkpoint gates and ensuring that owners actively monitor the residual risks during rollout. If any checkpoint fails, rollback criteria should be invoked rather than relying on informal risk acceptance."
+  },
+  "latency_metrics_seconds": {
+    "Configuration A \u2014 General Analysis": 7.926282400032505,
+    "Configuration B \u2014 Operational Readiness Analysis": 3.216985800070688
+  },
+  "token_usage_metrics": {
+    "Configuration A \u2014 General Analysis": {
+      "input_tokens": 93,
+      "output_tokens": 213,
+      "total_tokens": 306
+    },
+    "Configuration B \u2014 Operational Readiness Analysis": {
+      "input_tokens": 107,
+      "output_tokens": 229,
+      "total_tokens": 336
+    }
+  },
+  "manual_scores": {
+    "Configuration A \u2014 General Analysis": {
+      "Correctness": 5,
+      "Risk awareness": 5,
+      "Actionability": 5,
+      "Evidence quality": 5
+    },
+    "Configuration B \u2014 Operational Readiness Analysis": {
+      "Correctness": 5,
+      "Risk awareness": 5,
+      "Actionability": 5,
+      "Evidence quality": 5
+    }
+  },
+  "total_scores": {
+    "Configuration A \u2014 General Analysis": 20,
+    "Configuration B \u2014 Operational Readiness Analysis": 20
+  }
+}

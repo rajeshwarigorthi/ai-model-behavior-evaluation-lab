@@ -2,16 +2,27 @@ import json
 import os
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
 
 import streamlit as st
 from openai import APIConnectionError, APIError, AuthenticationError, OpenAI, RateLimitError
 
 
 MODEL = "gpt-5.6-luna"
-SYNTHETIC_DATA_STATEMENT = "This evaluation uses a synthetic scenario and contains no real company or patient data."
+REASONING_EFFORT = "low"
+MAX_OUTPUT_TOKENS = 700
+PROMPT_VERSION_A = "v1-general"
+PROMPT_VERSION_B = "v1-operational"
 CONFIGURATION_A = "Configuration A — General Analysis"
 CONFIGURATION_B = "Configuration B — Operational Readiness Analysis"
 SCORE_DIMENSIONS = ("Correctness", "Risk awareness", "Actionability", "Evidence quality")
+SCENARIOS_PATH = Path(__file__).parent / "data" / "scenarios.json"
+
+
+def load_scenarios():
+    with SCENARIOS_PATH.open(encoding="utf-8") as scenarios_file:
+        return json.load(scenarios_file)
 
 
 def token_usage(response):
@@ -42,8 +53,8 @@ def run_configuration(client, name, prompt, scenario):
         model=MODEL,
         instructions=prompt,
         input=scenario,
-        reasoning={"effort": "low"},
-        max_output_tokens=700,
+        reasoning={"effort": REASONING_EFFORT},
+        max_output_tokens=MAX_OUTPUT_TOKENS,
     )
     return {
         "name": name,
@@ -63,12 +74,44 @@ st.set_page_config(page_title="AI Model Behavior Evaluation Lab", page_icon="�
 st.title("AI Model Behavior Evaluation Lab")
 st.write("Compare two prompt configurations against the same synthetic scenario, then score their behavior using human judgment.")
 
-st.subheader("Synthetic scenario")
+scenarios = load_scenarios()
+scenarios_by_id = {item["id"]: item for item in scenarios}
+
+
+def change_scenario():
+    selected = scenarios_by_id[st.session_state["selected_scenario_id"]]
+    st.session_state["scenario_text"] = selected["scenario"]
+    st.session_state.pop("evaluation", None)
+
+
+def clear_evaluation():
+    st.session_state.pop("evaluation", None)
+
+
+st.subheader("Synthetic scenario library")
+selected_scenario_id = st.selectbox(
+    "Select a scenario",
+    options=list(scenarios_by_id),
+    format_func=lambda scenario_id: scenarios_by_id[scenario_id]["title"],
+    key="selected_scenario_id",
+    on_change=change_scenario,
+)
+selected_scenario = scenarios_by_id[selected_scenario_id]
+metadata_columns = st.columns(3)
+metadata_columns[0].write(f"**Title:** {selected_scenario['title']}")
+metadata_columns[1].write(f"**Category:** {selected_scenario['category']}")
+metadata_columns[2].write(f"**Risk level:** {selected_scenario['risk_level']}")
+
+if "scenario_text" not in st.session_state:
+    st.session_state["scenario_text"] = selected_scenario["scenario"]
+
 scenario = st.text_area(
     "Scenario to evaluate",
-    value="Should a healthcare claims application be approved for production migration when performance under combined workloads has not yet been validated?",
     height=120,
+    key="scenario_text",
+    on_change=clear_evaluation,
 )
+st.caption(selected_scenario["synthetic_data_statement"])
 
 st.subheader("Prompt configurations")
 configuration_a, configuration_b = st.columns(2, gap="large")
@@ -108,10 +151,22 @@ if st.button("Run evaluation", type="primary"):
                     errors.append(f"{name}: {friendly_api_error(error)}")
 
         if results:
+            timestamp = datetime.now(timezone.utc)
             st.session_state["evaluation"] = {
-                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-                "synthetic_data_statement": SYNTHETIC_DATA_STATEMENT,
+                "run_id": f"run-{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}",
+                "scenario_id": selected_scenario["id"],
+                "scenario_title": selected_scenario["title"],
+                "scenario_category": selected_scenario["category"],
+                "scenario_risk_level": selected_scenario["risk_level"],
+                "expected_decision": selected_scenario["expected_decision"],
+                "required_considerations": selected_scenario["required_considerations"],
+                "prompt_version_a": PROMPT_VERSION_A,
+                "prompt_version_b": PROMPT_VERSION_B,
                 "model": MODEL,
+                "reasoning_effort": REASONING_EFFORT,
+                "max_output_tokens": MAX_OUTPUT_TOKENS,
+                "timestamp_utc": timestamp.isoformat(),
+                "synthetic_data_statement": selected_scenario["synthetic_data_statement"],
                 "scenario": scenario.strip(),
                 "results": results,
             }
