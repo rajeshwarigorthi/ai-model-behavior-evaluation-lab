@@ -3,6 +3,12 @@ import re
 import unittest
 from pathlib import Path
 
+from evaluation_logic import (
+    aggregate_trial_results,
+    execution_order,
+    expected_request_count,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS_PATH = ROOT / "data" / "scenarios.json"
@@ -65,8 +71,75 @@ class ScenarioLibraryTests(unittest.TestCase):
                 self.assertIsNone(pattern.search(content), str(path.relative_to(ROOT)))
 
     def test_app_has_valid_python_syntax(self):
-        source = (ROOT / "app.py").read_text(encoding="utf-8")
-        compile(source, "app.py", "exec")
+        for filename in ("app.py", "evaluation_logic.py"):
+            source = (ROOT / filename).read_text(encoding="utf-8")
+            compile(source, filename, "exec")
+
+    def test_execution_order_for_trials_one_two_and_three(self):
+        self.assertEqual(execution_order(1), ("A", "B"))
+        self.assertEqual(execution_order(2), ("B", "A"))
+        self.assertEqual(execution_order(3), ("A", "B"))
+
+    def test_expected_request_count(self):
+        self.assertEqual(expected_request_count(1), 2)
+        self.assertEqual(expected_request_count(3), 6)
+        self.assertEqual(expected_request_count(5), 10)
+
+    def test_aggregate_calculations(self):
+        records = [
+            self._result("A", 2.0, 10, 20, 30),
+            self._result("A", 4.0, 14, 24, 38),
+            self._result("B", 3.0, 12, 22, 34),
+        ]
+        aggregate = aggregate_trial_results(records)
+        self.assertEqual(aggregate["A"]["successful_trial_count"], 2)
+        self.assertEqual(aggregate["A"]["mean_latency_seconds"], 3.0)
+        self.assertEqual(aggregate["A"]["median_latency_seconds"], 3.0)
+        self.assertEqual(aggregate["A"]["minimum_latency_seconds"], 2.0)
+        self.assertEqual(aggregate["A"]["maximum_latency_seconds"], 4.0)
+        self.assertEqual(aggregate["A"]["mean_input_tokens"], 12)
+        self.assertEqual(aggregate["A"]["mean_output_tokens"], 22)
+        self.assertEqual(aggregate["A"]["mean_total_tokens"], 34)
+        self.assertEqual(aggregate["B"]["result_basis"], "single-run")
+
+    def test_failed_trials_are_counted_and_excluded_from_metrics(self):
+        records = [
+            self._result("A", 2.0, 10, 20, 30),
+            {
+                "configuration_key": "A",
+                "status": "failure",
+                "latency_seconds": 1.0,
+                "input_tokens": None,
+                "output_tokens": None,
+                "total_tokens": None,
+            },
+            {
+                "configuration_key": "B",
+                "status": "failure",
+                "latency_seconds": 1.5,
+                "input_tokens": None,
+                "output_tokens": None,
+                "total_tokens": None,
+            },
+        ]
+        aggregate = aggregate_trial_results(records)
+        self.assertEqual(aggregate["A"]["successful_trial_count"], 1)
+        self.assertEqual(aggregate["A"]["failed_trial_count"], 1)
+        self.assertEqual(aggregate["A"]["mean_latency_seconds"], 2.0)
+        self.assertEqual(aggregate["B"]["successful_trial_count"], 0)
+        self.assertEqual(aggregate["B"]["failed_trial_count"], 1)
+        self.assertIsNone(aggregate["B"]["mean_latency_seconds"])
+
+    @staticmethod
+    def _result(configuration_key, latency, input_tokens, output_tokens, total_tokens):
+        return {
+            "configuration_key": configuration_key,
+            "status": "success",
+            "latency_seconds": latency,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
+        }
 
 
 if __name__ == "__main__":

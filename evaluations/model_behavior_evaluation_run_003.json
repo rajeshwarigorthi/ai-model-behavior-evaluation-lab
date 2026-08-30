@@ -1,0 +1,173 @@
+{
+  "run_id": "run-20260830T210336Z-c5fb5bcb",
+  "scenario_id": "minor-monitoring-gap",
+  "scenario_title": "Minor Monitoring Gap with Canary Option",
+  "scenario_category": "Observability readiness",
+  "scenario_risk_level": "Medium",
+  "expected_decision": "CONDITIONAL_GO",
+  "required_considerations": [
+    "Materiality and detectability of the monitoring gap",
+    "Canary scope, duration, and traffic limits",
+    "Named operators and manual monitoring procedure",
+    "Objective exit, rollback, and expansion criteria"
+  ],
+  "scenario": "Core production-like performance and rollback tests have passed, critical dependencies are ready, and business support is staffed. One non-critical dashboard lacks a finalized alert for a secondary service-level indicator. The underlying metric is available, operators can inspect it manually, and the team proposes a limited canary rollout with strict traffic limits, active observation, and predefined exit criteria.",
+  "requested_trial_count": 3,
+  "total_expected_api_request_count": 6,
+  "execution_order_strategy": "Sequential alternating order: odd trials A then B; even trials B then A.",
+  "individual_trial_results": [
+    {
+      "trial_number": 1,
+      "execution_position": "first",
+      "configuration_key": "A",
+      "configuration_name": "Configuration A \u2014 General Analysis",
+      "prompt_version": "v1-general",
+      "prompt": "You are a technical program manager. Analyze the situation and recommend whether the application should be approved for production migration.",
+      "model": "gpt-5.6-luna",
+      "response": "**Recommendation: Approve a limited production canary, but do not approve unrestricted full migration yet.**\n\nThe core readiness criteria are satisfied: performance and rollback testing passed, critical dependencies are ready, and business support coverage is in place. The remaining gap\u2014a non-critical dashboard alert for a secondary SLI\u2014does not appear to block a tightly controlled canary because the metric is available for manual inspection.\n\nApproval should be conditional on:\n\n- Strict traffic and blast-radius limits.\n- Active monitoring by named operators throughout the canary.\n- Predefined success, pause, rollback, and escalation criteria.\n- Immediate rollback capability verified before launch.\n- A documented owner and deadline for finalizing the missing alert.\n- No expansion beyond the canary until the alert is implemented and observed successfully.\n\n**Decision:** Approve **canary migration only**. Hold full production rollout pending completion and validation of the secondary SLI alert, unless the risk owner explicitly accepts the residual monitoring risk.",
+      "latency_seconds": 6.9703309999313205,
+      "input_tokens": 102,
+      "output_tokens": 239,
+      "total_tokens": 341,
+      "status": "success",
+      "error_category": null,
+      "safe_error_message": null
+    },
+    {
+      "trial_number": 1,
+      "execution_position": "second",
+      "configuration_key": "B",
+      "configuration_name": "Configuration B \u2014 Operational Readiness Analysis",
+      "prompt_version": "v1-operational",
+      "prompt": "You are responsible for production-readiness evaluation. Assess combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations before recommending a launch decision.",
+      "model": "gpt-5.6-luna",
+      "response": "**Recommendation: Conditional go for a tightly controlled canary; do not proceed directly to full production rollout.**\n\nThe evidence supports a limited launch:\n\n- Core production-like performance and rollback tests passed.\n- Critical dependencies are ready.\n- Business support coverage is in place.\n- The missing alert concerns a **non-critical secondary SLI**, and the underlying metric is available for manual inspection.\n\nThe unresolved alert creates a manageable but real detection risk. Manual monitoring is less reliable than automated alerting, particularly during a combined workload or outside normal operating conditions.\n\n### Required canary controls\n\nBefore starting:\n\n- Define strict traffic and duration limits.\n- Assign named operators responsible for continuous observation.\n- Confirm the metric, dashboard, and manual inspection cadence.\n- Record explicit abort thresholds for:\n  - primary SLIs and error rates,\n  - latency and saturation,\n  - dependency health,\n  - the secondary SLI lacking an alert,\n  - rollback duration and rollback success.\n- Confirm the rollback owner, mechanism, and decision authority.\n- Freeze unrelated production changes during the canary.\n\nDuring the canary:\n\n- Increase traffic only in predefined stages.\n- Require an observation window at each stage.\n- Abort on any threshold breach, unexplained degradation, failed dependency behavior, or inability to verify the secondary SLI.\n- Keep rollback immediately available and validate that the system returns to the prior baseline.\n\nAfterward:\n\n- Do not authorize broad rollout until the missing alert is finalized, tested, and documented.\n- Capture canary results, including combined-workload behavior and rollback evidence.\n- Reassess whether manual monitoring revealed any blind spots.\n\n**Decision:** Proceed with the limited canary under the stated controls. Hold full rollout pending implementation and validation of the secondary SLI alert and successful canary results.",
+      "latency_seconds": 6.789131999947131,
+      "input_tokens": 116,
+      "output_tokens": 418,
+      "total_tokens": 534,
+      "status": "success",
+      "error_category": null,
+      "safe_error_message": null
+    },
+    {
+      "trial_number": 2,
+      "execution_position": "first",
+      "configuration_key": "B",
+      "configuration_name": "Configuration B \u2014 Operational Readiness Analysis",
+      "prompt_version": "v1-operational",
+      "prompt": "You are responsible for production-readiness evaluation. Assess combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations before recommending a launch decision.",
+      "model": "gpt-5.6-luna",
+      "response": "**Recommendation: Proceed with a tightly controlled canary, not a full launch yet.**\n\nThe evidence supports a limited rollout:\n\n- Core production-like performance and rollback tests passed.\n- Critical dependencies are ready.\n- Business and operational support are staffed.\n- The remaining gap is limited to a non-critical secondary service-level indicator, with the underlying metric available for manual inspection.\n\n**Required canary controls**\n\n1. Define explicit traffic and duration limits.\n2. Establish quantitative entry, observation, and exit criteria, including the secondary indicator.\n3. Assign an operator to monitor the underlying metric continuously during the canary.\n4. Confirm rollback authority, procedure, and expected rollback time before starting.\n5. Pause expansion immediately on unexplained degradation, dependency errors, elevated latency/error rates, or inability to observe the secondary metric.\n6. Finalize and validate the dashboard alert before increasing traffic beyond the canary or declaring full launch.\n\n**Risk assessment**\n\nThe alerting gap creates moderate operational risk because detection depends on manual observation. That risk is acceptable for a short, low-traffic canary with active staffing and strict rollback criteria, but it should not be accepted for broad production exposure.\n\n**Decision:** **Conditional go for limited canary only.** Expand or fully launch only after the missing alert is implemented and validated, or after equivalent automated detection and escalation coverage is established.",
+      "latency_seconds": 5.191304299980402,
+      "input_tokens": 116,
+      "output_tokens": 338,
+      "total_tokens": 454,
+      "status": "success",
+      "error_category": null,
+      "safe_error_message": null
+    },
+    {
+      "trial_number": 2,
+      "execution_position": "second",
+      "configuration_key": "A",
+      "configuration_name": "Configuration A \u2014 General Analysis",
+      "prompt_version": "v1-general",
+      "prompt": "You are a technical program manager. Analyze the situation and recommend whether the application should be approved for production migration.",
+      "model": "gpt-5.6-luna",
+      "response": "**Recommendation: Approve a limited, conditional production canary\u2014not a full production rollout yet.**\n\nThe major readiness indicators are satisfied:\n\n- Core performance and rollback tests passed.\n- Critical dependencies are ready.\n- Business support coverage is in place.\n- The missing alert concerns a **non-critical dashboard and secondary SLI**.\n- The underlying metric is available for manual monitoring.\n\nThe residual risk is acceptable for a tightly controlled canary, provided that the team implements the following controls:\n\n1. **Strict traffic and duration limits** for the initial rollout.\n2. **Continuous operator observation** of the secondary SLI and related service health.\n3. **Predefined abort thresholds and exit criteria**, including rollback triggers for both primary and secondary indicators.\n4. **Validated rollback execution path** and clear ownership for initiating it.\n5. **No expansion beyond the canary** until the alert is finalized, tested, and operationally acknowledged.\n6. A documented plan for handling monitoring gaps during off-hours or support handoffs.\n\n**Decision:** Approve the canary migration with explicit conditions. Do not approve unrestricted production migration or broader traffic ramp-up until the missing alert is implemented and verified.",
+      "latency_seconds": 4.131621700013056,
+      "input_tokens": 102,
+      "output_tokens": 283,
+      "total_tokens": 385,
+      "status": "success",
+      "error_category": null,
+      "safe_error_message": null
+    },
+    {
+      "trial_number": 3,
+      "execution_position": "first",
+      "configuration_key": "A",
+      "configuration_name": "Configuration A \u2014 General Analysis",
+      "prompt_version": "v1-general",
+      "prompt": "You are a technical program manager. Analyze the situation and recommend whether the application should be approved for production migration.",
+      "model": "gpt-5.6-luna",
+      "response": "**Recommendation: Approve a controlled canary migration, but not an unrestricted production rollout.**\n\nThe major readiness criteria are satisfied:\n\n- Core performance and rollback testing passed.\n- Critical dependencies are ready.\n- Business support and operational staffing are in place.\n- The missing alert concerns a **non-critical secondary indicator**, and the underlying metric remains available for manual inspection.\n\nThe alert gap is a manageable residual risk if the canary is tightly controlled. Approval should be conditional on:\n\n1. **Strict traffic limits and a defined canary duration.**\n2. **Active monitoring** of the underlying metric and all critical service indicators.\n3. **Predefined abort thresholds and exit criteria**, including automatic or immediate rollback triggers.\n4. **Named operational owners** responsible for monitoring and decision-making.\n5. **A documented workaround** for the missing alert and a committed deadline to finalize it before broader rollout.\n6. **No expansion beyond the canary** unless observed results meet the agreed criteria.\n\n**Decision:** Approve migration to a limited, actively supervised canary. Defer full production expansion until the secondary-SLI alert is finalized or equivalent automated monitoring is implemented.",
+      "latency_seconds": 3.7969367001205683,
+      "input_tokens": 102,
+      "output_tokens": 280,
+      "total_tokens": 382,
+      "status": "success",
+      "error_category": null,
+      "safe_error_message": null
+    },
+    {
+      "trial_number": 3,
+      "execution_position": "second",
+      "configuration_key": "B",
+      "configuration_name": "Configuration B \u2014 Operational Readiness Analysis",
+      "prompt_version": "v1-operational",
+      "prompt": "You are responsible for production-readiness evaluation. Assess combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations before recommending a launch decision.",
+      "model": "gpt-5.6-luna",
+      "response": "**Recommendation: Conditional go for a limited canary, not unrestricted production launch.**\n\nThe evidence supports a controlled rollout:\n\n- Core production-like performance and rollback tests passed.\n- Critical dependencies are ready.\n- Business and operational support is staffed.\n- The missing alert concerns a **non-critical secondary SLI**, and the underlying metric is available for manual inspection.\n- Strict traffic limits, active observation, and predefined exit criteria provide compensating controls.\n\n### Required canary conditions\n\nBefore starting:\n\n1. **Document the manual monitoring procedure**\n   - Metric location, query/dashboard, sampling frequency, owner, and escalation path.\n   - Assign an explicit operator responsible for reviewing the secondary SLI.\n\n2. **Set conservative traffic and duration limits**\n   - Use the smallest meaningful traffic slice.\n   - Define an observation window long enough to cover representative peak and steady-state behavior.\n   - Do not expand traffic automatically.\n\n3. **Predefine abort criteria**\n   Include, at minimum:\n   - Any critical error-rate, latency, saturation, or dependency-health regression.\n   - Rollback failure or elevated rollback time.\n   - Material degradation in the secondary SLI, even if no automated alert fires.\n   - Any unexplained divergence between canary and control behavior.\n   - Loss of manual monitoring coverage or operator availability.\n\n4. **Confirm rollback mechanics**\n   - Named rollback decision-maker.\n   - Tested rollback command/procedure and expected completion time.\n   - Clear traffic drain and data/state-handling behavior.\n   - Post-rollback verification steps.\n\n5. **Capture evidence**\n   - Baseline versus canary metrics.\n   - Observation logs and decisions.\n   - Any manual checks performed.\n   - Explicit sign-off before each traffic increase.\n\n### Risk assessment\n\nThe principal risk is **detection latency or operator omission** for the unalerted secondary SLI. Because the metric is available and the SLI is non-critical, this is acceptable for a constrained canary, but it is not sufficient justification for broad rollout without further validation.\n\n### Exit decision\n\n- **Proceed** if the canary remains within predefined thresholds, rollback readiness remains intact, and manual monitoring confirms the secondary SLI is healthy.\n- **Pause or roll back** on any critical regression, threshold breach, monitoring gap, or unexplained behavior.\n- **Do not proceed to full rollout** until the alert is finalized and validated, unless an explicit risk owner approves the residual risk based on the canary evidence.",
+      "latency_seconds": 7.264753700001165,
+      "input_tokens": 116,
+      "output_tokens": 586,
+      "total_tokens": 702,
+      "status": "success",
+      "error_category": null,
+      "safe_error_message": null
+    }
+  ],
+  "aggregate_metrics": {
+    "A": {
+      "successful_trial_count": 3,
+      "failed_trial_count": 0,
+      "result_basis": "repeated-trial",
+      "mean_latency_seconds": 4.966296466688315,
+      "median_latency_seconds": 4.131621700013056,
+      "minimum_latency_seconds": 3.7969367001205683,
+      "maximum_latency_seconds": 6.9703309999313205,
+      "mean_input_tokens": 102,
+      "mean_output_tokens": 267.3333333333333,
+      "mean_total_tokens": 369.3333333333333
+    },
+    "B": {
+      "successful_trial_count": 3,
+      "failed_trial_count": 0,
+      "result_basis": "repeated-trial",
+      "mean_latency_seconds": 6.415063333309566,
+      "median_latency_seconds": 6.789131999947131,
+      "minimum_latency_seconds": 5.191304299980402,
+      "maximum_latency_seconds": 7.264753700001165,
+      "mean_input_tokens": 116,
+      "mean_output_tokens": 447.3333333333333,
+      "mean_total_tokens": 563.3333333333334
+    }
+  },
+  "prompt_version_a": "v1-general",
+  "prompt_version_b": "v1-operational",
+  "model": "gpt-5.6-luna",
+  "reasoning_effort": "low",
+  "max_output_tokens": 700,
+  "timestamp_utc": "2026-08-30T21:03:36.087746+00:00",
+  "synthetic_data_statement": "This is a completely synthetic scenario containing no real company, patient, customer, or confidential data.",
+  "human_scores": {
+    "A": {
+      "Correctness": 5,
+      "Risk awareness": 5,
+      "Actionability": 5,
+      "Evidence quality": 5
+    },
+    "B": {
+      "Correctness": 5,
+      "Risk awareness": 5,
+      "Actionability": 5,
+      "Evidence quality": 5
+    }
+  },
+  "total_human_scores": {
+    "A": 20,
+    "B": 20
+  }
+}
