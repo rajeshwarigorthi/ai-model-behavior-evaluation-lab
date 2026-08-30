@@ -10,12 +10,28 @@ Model-behavior evaluation matters because small changes in role, scope, and requ
 
 ## Experiment design
 
-The lab sends the same synthetic production-migration scenario to `gpt-5.6-luna` through the OpenAI Responses API. Each **Run evaluation** click makes two independent requests with low reasoning effort and a 700-output-token limit:
+The lab sends the same selected synthetic production-migration scenario to `gpt-5.6-luna` through the OpenAI Responses API. Each **Run evaluation** click makes two independent requests with low reasoning effort and a 700-output-token limit:
 
 - **Configuration A — General Analysis:** asks a technical program manager to analyze the situation and recommend whether migration should be approved.
 - **Configuration B — Operational Readiness Analysis:** explicitly asks about combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations.
 
 The app captures each response, latency, and available input/output/total token counts. Results remain in Streamlit session state so scoring interactions and JSON downloads do not repeat API calls.
+
+## Version 0.2 — Synthetic scenario library
+
+Version 0.2 adds a five-scenario dataset so evaluation is not limited to one illustrative example. A single example can demonstrate the interface, but an evaluation dataset makes coverage explicit and creates a foundation for comparing behavior across different decision patterns.
+
+The library includes typical readiness cases, an edge case that may justify a controlled canary, and an adversarial governance case involving executive pressure. Each scenario has an expected decision (`GO`, `CONDITIONAL_GO`, or `NO_GO`) as a reference label and a list of considerations a strong response should address. These labels support human review; they are not automatic grades or proof that a response is correct.
+
+To use the library:
+
+1. Select a scenario by title.
+2. Review its category and risk level.
+3. Edit the scenario text if desired.
+4. Click **Run evaluation** to send that text to both prompt configurations.
+5. Apply the human rubric and download the enriched JSON evidence.
+
+Selecting or editing a scenario does not call the API. Run 001 remains the original Version 0.1 baseline and is not modified by Version 0.2. Human scoring is still required; repeated trials and aggregate analysis remain future work.
 
 ## Human-evaluation rubric
 
@@ -52,13 +68,34 @@ flowchart LR
 
 The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_001.json`](evaluations/model_behavior_evaluation_run_001.json).
 
+## Run 002 results
+
+- **Scenario:** Documented End-to-End Readiness
+- **Expected decision:** `GO`
+
+| Prompt configuration | Latency | Total tokens | Human quality score |
+|---|---:|---:|---:|
+| Configuration A — General Analysis | 7.93 seconds | 306 | 20/20 |
+| Configuration B — Operational Readiness Analysis | 3.22 seconds | 336 | 20/20 |
+
+**Quality result: tie.** Both configurations correctly approved the launch. Configuration A provided a more detailed launch checklist, while Configuration B mapped the evidence directly to operational-readiness dimensions. Configuration B was approximately 59% faster in this run but used approximately 10% more tokens.
+
+Configuration B executed second in both Run 001 and Run 002, so execution order or connection warm-up may affect latency. These runs do not establish that Configuration B is consistently faster. Version 0.3 should alternate or randomize execution order to reduce this potential bias.
+
+The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_002.json`](evaluations/model_behavior_evaluation_run_002.json).
+
 ## Project structure
 
 ```text
 .
 ├── app.py
+├── data/
+│   └── scenarios.json
 ├── evaluations/
-│   └── model_behavior_evaluation_run_001.json
+│   ├── model_behavior_evaluation_run_001.json
+│   └── model_behavior_evaluation_run_002.json
+├── tests/
+│   └── test_scenarios.py
 ├── .env.example
 ├── .gitignore
 ├── LICENSE
@@ -97,7 +134,7 @@ The included scenario is synthetic and is intended only to demonstrate an evalua
 - A single run cannot establish statistical significance or consistent superiority.
 - Model output and latency can vary across requests and service conditions.
 - Human scores reflect one evaluator and are not calibrated across reviewers.
-- The prototype compares two prompts, one model, and one scenario at a time.
+- The prototype compares two prompts and one model against one selected scenario at a time.
 - Results persist only for the active Streamlit session unless downloaded.
 - The lab does not include a database, authentication, user tracking, automated retry, or production monitoring.
 
