@@ -31,7 +31,20 @@ To use the library:
 4. Click **Run evaluation** to send that text to both prompt configurations.
 5. Apply the human rubric and download the enriched JSON evidence.
 
-Selecting or editing a scenario does not call the API. Run 001 remains the original Version 0.1 baseline and is not modified by Version 0.2. Human scoring is still required; repeated trials and aggregate analysis remain future work.
+Selecting or editing a scenario does not call the API. Run 001 remains the original Version 0.1 baseline and is not modified by Version 0.2. Human scoring is still required; Version 0.3 adds repeated trials and descriptive aggregates.
+
+## Version 0.3 — Repeated trials and alternating order
+
+One run is insufficient because model responses and request latency can vary between otherwise identical calls. Version 0.3 lets an evaluator request 1, 3, or 5 trials. Each trial evaluates both prompts, so the choices make 2, 6, or 10 API requests respectively. The app displays this request count before execution and makes no request until **Run evaluation** is clicked.
+
+Configurations still run sequentially, but their order alternates to reduce a systematic order effect:
+
+- Odd-numbered trials run Configuration A and then Configuration B.
+- Even-numbered trials run Configuration B and then Configuration A.
+
+The aggregate table reports successful and failed trial counts plus descriptive latency and token metrics. Mean latency is the arithmetic average across successful requests; median latency is the middle value after sorting and is less sensitive to an unusually fast or slow request. A single successful request is explicitly labeled as a single-run result, and failed requests are excluded from performance calculations while remaining visible in the trial record.
+
+These metrics do not establish statistical significance or prove that one prompt is consistently faster or better. Version 0.3 uses small evaluator-selected trial counts, does not randomize the first configuration within a trial set, and does not control external service or network conditions. A future version should add blinded pairwise quality evaluation so reviewers can compare responses without seeing their prompt identity.
 
 ## Human-evaluation rubric
 
@@ -84,16 +97,35 @@ Configuration B executed second in both Run 001 and Run 002, so execution order 
 
 The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_002.json`](evaluations/model_behavior_evaluation_run_002.json).
 
+## Run 003 results
+
+- **Scenario:** Minor Monitoring Gap with Canary Option
+- **Expected decision:** `CONDITIONAL_GO`
+- **Trials:** 3 per configuration, with alternating execution order
+
+| Prompt configuration | Mean latency | Median latency | Mean total tokens | Successful trials | Human quality score |
+|---|---:|---:|---:|---:|---:|
+| Configuration A — General Analysis | 4.97 seconds | 4.13 seconds | 369 | 3/3 | 20/20 |
+| Configuration B — Operational Readiness Analysis | 6.42 seconds | 6.79 seconds | 563 | 3/3 | 20/20 |
+
+Both configurations consistently produced the expected conditional-go decision and received 20/20 human scores. Configuration A was more concise and used less time and fewer tokens in this experiment, while Configuration B provided more detailed operational guidance. No overall winner is declared because the responses demonstrated different strengths.
+
+Three trials are insufficient to establish statistical significance. Network conditions, model variability, and the small sample size remain material limitations.
+
+The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_003.json`](evaluations/model_behavior_evaluation_run_003.json).
+
 ## Project structure
 
 ```text
 .
 ├── app.py
+├── evaluation_logic.py
 ├── data/
 │   └── scenarios.json
 ├── evaluations/
 │   ├── model_behavior_evaluation_run_001.json
-│   └── model_behavior_evaluation_run_002.json
+│   ├── model_behavior_evaluation_run_002.json
+│   └── model_behavior_evaluation_run_003.json
 ├── tests/
 │   └── test_scenarios.py
 ├── .env.example
@@ -135,6 +167,9 @@ The included scenario is synthetic and is intended only to demonstrate an evalua
 - Model output and latency can vary across requests and service conditions.
 - Human scores reflect one evaluator and are not calibrated across reviewers.
 - The prototype compares two prompts and one model against one selected scenario at a time.
+- Repeated-trial aggregates are descriptive and use a maximum of five trials.
+- Sequential requests may still be affected by changing network or service conditions.
+- Quality scoring is not blinded, so prompt identity may influence the evaluator.
 - Results persist only for the active Streamlit session unless downloaded.
 - The lab does not include a database, authentication, user tracking, automated retry, or production monitoring.
 
