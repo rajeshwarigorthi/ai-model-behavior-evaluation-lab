@@ -10,9 +10,18 @@ from openai import APIConnectionError, APIError, AuthenticationError, OpenAI, Ra
 
 from evaluation_logic import (
     ALLOWED_TRIAL_COUNTS,
+    SCORE_DIMENSIONS,
     aggregate_trial_results,
+    aggregate_review_summary,
+    build_review,
+    empty_review,
     execution_order,
     expected_request_count,
+    format_consideration_coverage,
+    format_mean_consideration_coverage,
+    input_signature,
+    is_reviewable,
+    results_are_stale,
 )
 
 
@@ -26,7 +35,6 @@ CONFIGURATION_B = "Configuration B — Operational Readiness Analysis"
 EXECUTION_ORDER_STRATEGY = (
     "Sequential alternating order: odd trials A then B; even trials B then A."
 )
-SCORE_DIMENSIONS = ("Correctness", "Risk awareness", "Actionability", "Evidence quality")
 SCENARIOS_PATH = Path(__file__).parent / "data" / "scenarios.json"
 
 
@@ -129,7 +137,6 @@ scenarios_by_id = {item["id"]: item for item in scenarios}
 def change_scenario():
     selected = scenarios_by_id[st.session_state["selected_scenario_id"]]
     st.session_state["scenario_text"] = selected["scenario"]
-    clear_evaluation()
 
 
 st.subheader("Synthetic scenario library")
@@ -153,7 +160,6 @@ scenario = st.text_area(
     "Scenario to evaluate",
     height=120,
     key="scenario_text",
-    on_change=clear_evaluation,
 )
 st.caption(selected_scenario["synthetic_data_statement"])
 
@@ -164,7 +170,6 @@ trial_count = st.radio(
     index=0,
     horizontal=True,
     key="trial_count",
-    on_change=clear_evaluation,
 )
 request_count = expected_request_count(trial_count)
 st.info(
@@ -192,6 +197,17 @@ with configuration_b:
         key="prompt_b",
     )
 
+current_inputs = {
+    "scenario_id": selected_scenario["id"],
+    "scenario_text": scenario,
+    "configuration_a_prompt": prompt_a,
+    "configuration_b_prompt": prompt_b,
+    "requested_trial_count": trial_count,
+    "model": MODEL,
+    "reasoning_effort": REASONING_EFFORT,
+    "max_output_tokens": MAX_OUTPUT_TOKENS,
+}
+
 if st.button("Run evaluation", type="primary"):
     if not scenario.strip():
         st.error("Enter a scenario before running the evaluation.")
@@ -211,14 +227,14 @@ if st.button("Run evaluation", type="primary"):
                     "name": CONFIGURATION_A,
                     "prompt_version": PROMPT_VERSION_A,
                     "prompt": prompt_a,
-                    "scenario": scenario.strip(),
+                    "scenario": scenario,
                 },
                 "B": {
                     "key": "B",
                     "name": CONFIGURATION_B,
                     "prompt_version": PROMPT_VERSION_B,
                     "prompt": prompt_b,
-                    "scenario": scenario.strip(),
+                    "scenario": scenario,
                 },
             }
             trial_results = []
@@ -244,7 +260,9 @@ if st.button("Run evaluation", type="primary"):
                 "scenario_risk_level": selected_scenario["risk_level"],
                 "expected_decision": selected_scenario["expected_decision"],
                 "required_considerations": selected_scenario["required_considerations"],
-                "scenario": scenario.strip(),
+                "scenario": scenario,
+                "evaluation_inputs": current_inputs,
+                "input_signature": input_signature(current_inputs),
                 "requested_trial_count": trial_count,
                 "total_expected_api_request_count": request_count,
                 "execution_order_strategy": EXECUTION_ORDER_STRATEGY,
@@ -261,7 +279,14 @@ if st.button("Run evaluation", type="primary"):
 
 evaluation = st.session_state.get("evaluation")
 if evaluation:
+    stale_results = results_are_stale(evaluation.get("input_signature"), current_inputs)
     st.divider()
+    if stale_results:
+        st.warning(
+            "These results are stale because the evaluation inputs changed after this run. "
+            "Run the evaluation again before scoring or comparing the updated inputs."
+        )
+
     st.subheader("Aggregate comparison")
     st.caption("Descriptive metrics only; these results do not establish statistical significance.")
     aggregate_rows = []
@@ -289,6 +314,7 @@ if evaluation:
     st.dataframe(aggregate_rows, use_container_width=True, hide_index=True)
 
     st.subheader("Individual trial responses")
+    required_considerations = evaluation["required_considerations"]
     for trial_number in range(1, evaluation["requested_trial_count"] + 1):
         trial_records = [
             result
@@ -310,54 +336,163 @@ if evaluation:
                 st.write(f"Prompt version: {result['prompt_version']}")
                 st.write(f"Model: {result['model']}")
                 st.write(f"Latency: {result['latency_seconds']:.2f} seconds")
-                if result["status"] == "success":
+                if is_reviewable(result):
                     st.markdown(result["response"])
                     st.write(f"Input tokens: {result['input_tokens'] if result['input_tokens'] is not None else 'Unavailable'}")
                     st.write(f"Output tokens: {result['output_tokens'] if result['output_tokens'] is not None else 'Unavailable'}")
                     st.write(f"Total tokens: {result['total_tokens'] if result['total_tokens'] is not None else 'Unavailable'}")
+                    st.markdown("##### Human review")
+                    st.write(f"Expected decision: **{evaluation['expected_decision']}**")
+                    key_prefix = (
+                        f"review_{evaluation['run_id']}_{trial_number}_"
+                        f"{result['configuration_key'].lower()}"
+                    )
+                    selected_scores = {}
+                    for dimension in SCORE_DIMENSIONS:
+                        selected = st.selectbox(
+                            f"{dimension} score",
+                            options=("Not reviewed", 1, 2, 3, 4, 5),
+                            key=f"{key_prefix}_{dimension.lower().replace(' ', '_')}",
+                            disabled=stale_results,
+                        )
+                        selected_scores[dimension] = (
+                            None if selected == "Not reviewed" else selected
+                        )
+
+                    expected_selection = st.selectbox(
+                        "Did this response reach the expected decision?",
+                        options=("Not reviewed", "Yes", "No", "Unclear"),
+                        key=f"{key_prefix}_expected_decision",
+                        disabled=stale_results,
+                    )
+                    expected_assessment = (
+                        None if expected_selection == "Not reviewed" else expected_selection
+                    )
+                    st.markdown("**Required considerations**")
+                    st.markdown(
+                        "\n".join(f"- {item}" for item in required_considerations)
+                        or "- No required considerations are defined."
+                    )
+                    addressed = st.multiselect(
+                        "Considerations addressed by this response",
+                        options=required_considerations,
+                        key=f"{key_prefix}_addressed",
+                        disabled=stale_results,
+                    )
+                    considerations_reviewed = st.checkbox(
+                        "Required-considerations review performed",
+                        key=f"{key_prefix}_considerations_reviewed",
+                        disabled=stale_results,
+                    )
+                    notes = st.text_area(
+                        "Optional reviewer notes",
+                        key=f"{key_prefix}_notes",
+                        disabled=stale_results,
+                    )
+                    prerequisites_met = (
+                        all(value is not None for value in selected_scores.values())
+                        and expected_assessment is not None
+                        and considerations_reviewed
+                    )
+                    mark_complete = st.checkbox(
+                        "Review complete",
+                        key=f"{key_prefix}_complete",
+                        disabled=stale_results or not prerequisites_met,
+                    )
+                    review = build_review(
+                        selected_scores,
+                        expected_assessment,
+                        addressed,
+                        required_considerations,
+                        considerations_reviewed,
+                        notes,
+                        mark_complete,
+                    )
+                    result.update(review)
+                    status_label = {
+                        "not_reviewed": "Not reviewed",
+                        "review_incomplete": "Review incomplete",
+                        "complete": "Review complete",
+                    }[review["review_status"]]
+                    st.write(f"Review status: **{status_label}**")
+                    if review["review_status"] == "complete":
+                        covered = len(review["addressed_considerations"])
+                        required = len(required_considerations)
+                        st.write(f"Total human score: **{review['total_human_score']}/20**")
+                        coverage_display = format_consideration_coverage(
+                            review["consideration_coverage"], covered, required
+                        )
+                        st.write(f"Consideration coverage: **{coverage_display}**")
                 else:
-                    st.error(result["safe_error_message"])
-                    st.write(f"Safe error category: {result['error_category']}")
+                    result.update(empty_review())
+                    if result["status"] == "failure":
+                        st.error(result["safe_error_message"])
+                        st.write(f"Safe error category: {result['error_category']}")
+                    st.info(
+                        "This response cannot be reviewed because no usable model output was produced."
+                    )
 
-    st.subheader("Human evaluation scores")
-    st.caption("These evaluator-assigned scores summarize each configuration; they are not automated model scores.")
-    score_columns = st.columns(2, gap="large")
-    human_scores = {}
-    for column, key, name in zip(
-        score_columns,
-        ("A", "B"),
-        (CONFIGURATION_A, CONFIGURATION_B),
-    ):
-        with column:
-            st.markdown(f"#### {name}")
-            human_scores[key] = {
-                dimension: st.slider(
-                    dimension,
-                    1,
-                    5,
-                    3,
-                    key=f"score_{key.lower()}_{dimension.lower().replace(' ', '_')}",
-                )
-                for dimension in SCORE_DIMENSIONS
+    review_summary = aggregate_review_summary(evaluation["individual_trial_results"])
+    completed_reviews = sum(
+        item["completed_review_count"] for item in review_summary.values()
+    )
+    usable_responses = sum(
+        item["usable_response_count"] for item in review_summary.values()
+    )
+    incomplete_reviews = usable_responses - completed_reviews
+
+    st.subheader("Human review summary")
+    st.write(f"**{completed_reviews} of {usable_responses} responses reviewed.**")
+    review_rows = []
+    for key, name in (("A", CONFIGURATION_A), ("B", CONFIGURATION_B)):
+        summary = review_summary[key]
+        reviewed = summary["completed_review_count"]
+        coverage = summary["mean_consideration_coverage"]
+        review_rows.append(
+            {
+                "Configuration": name,
+                "Usable responses": summary["usable_response_count"],
+                "Completed reviews": reviewed,
+                "Expected-decision matches": f"{summary['expected_decision_matches']} of {reviewed} reviewed",
+                "Mismatches": f"{summary['expected_decision_mismatches']} of {reviewed} reviewed",
+                "Unclear": f"{summary['expected_decision_unclear']} of {reviewed} reviewed",
+                "Mean human score": (
+                    "Unavailable"
+                    if summary["mean_human_score"] is None
+                    else f"{summary['mean_human_score']:.1f}/20"
+                ),
+                "Mean consideration coverage": format_mean_consideration_coverage(
+                    coverage, reviewed
+                ),
             }
+        )
+    st.dataframe(review_rows, use_container_width=True, hide_index=True)
 
-    totals = {key: sum(scores.values()) for key, scores in human_scores.items()}
-    difference = totals["A"] - totals["B"]
-    summary_columns = st.columns(3)
-    summary_columns[0].metric("Configuration A total", totals["A"])
-    summary_columns[1].metric("Configuration B total", totals["B"])
-    summary_columns[2].metric("Score difference (A − B)", difference)
-    if difference > 0:
-        st.success("Configuration A currently has the higher human score.")
-    elif difference < 0:
-        st.success("Configuration B currently has the higher human score.")
+    all_reviews_complete = all(
+        review_summary[key]["usable_response_count"] > 0
+        and review_summary[key]["incomplete_review_count"] == 0
+        for key in ("A", "B")
+    )
+    if stale_results:
+        st.warning("No winner is presented while results are stale.")
+    elif not all_reviews_complete:
+        st.info("No clear winner. Complete every usable response review before comparing human scores.")
     else:
-        st.info("The configurations are tied.")
+        mean_a = review_summary["A"]["mean_human_score"]
+        mean_b = review_summary["B"]["mean_human_score"]
+        if mean_a > mean_b:
+            st.success("Configuration A has the higher mean completed-review score.")
+        elif mean_b > mean_a:
+            st.success("Configuration B has the higher mean completed-review score.")
+        else:
+            st.info("No clear winner. The mean completed-review scores are tied.")
 
     export = {
         **evaluation,
-        "human_scores": human_scores,
-        "total_human_scores": totals,
+        "completed_review_count": completed_reviews,
+        "incomplete_review_count": incomplete_reviews,
+        "configuration_review_summary": review_summary,
+        "stale_results": stale_results,
     }
     st.download_button(
         "Download evaluation JSON",
