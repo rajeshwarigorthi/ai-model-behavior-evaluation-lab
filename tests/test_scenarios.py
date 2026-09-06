@@ -1,12 +1,22 @@
 import json
+import hashlib
 import re
 import unittest
 from pathlib import Path
 
 from evaluation_logic import (
     aggregate_trial_results,
+    aggregate_review_summary,
+    build_review,
+    consideration_coverage,
+    empty_review,
     execution_order,
     expected_request_count,
+    format_consideration_coverage,
+    format_mean_consideration_coverage,
+    input_signature,
+    is_reviewable,
+    results_are_stale,
 )
 
 
@@ -23,6 +33,11 @@ REQUIRED_FIELDS = {
     "synthetic_data_statement",
 }
 ALLOWED_DECISIONS = {"GO", "CONDITIONAL_GO", "NO_GO"}
+EVIDENCE_HASHES = {
+    "model_behavior_evaluation_run_001.json": "EC1EC834679D3E78C374CD54373E57962E50CB503C038C5F88EF0B38671B2580",
+    "model_behavior_evaluation_run_002.json": "9CB91EAD3BA99D4C672DF0B94DFC55B2804566323E50B9E1711458F13B6A821A",
+    "model_behavior_evaluation_run_003.json": "CEE42531A2345903934EDE2607A0F7A43FF59FBA720D25AA14B4B44D4E20FEE7",
+}
 SECRET_PATTERNS = (
     re.compile(r"sk-[A-Za-z0-9_-]{16,}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
@@ -129,6 +144,143 @@ class ScenarioLibraryTests(unittest.TestCase):
         self.assertEqual(aggregate["B"]["successful_trial_count"], 0)
         self.assertEqual(aggregate["B"]["failed_trial_count"], 1)
         self.assertIsNone(aggregate["B"]["mean_latency_seconds"])
+
+    def test_new_review_is_not_reviewed_and_uses_nulls(self):
+        review = empty_review()
+        self.assertEqual(review["review_status"], "not_reviewed")
+        self.assertTrue(all(score is None for score in review["human_scores"].values()))
+        self.assertIsNone(review["total_human_score"])
+        self.assertIsNone(review["expected_decision_match"])
+        self.assertIsNone(review["addressed_considerations"])
+        self.assertIn('"total_human_score": null', json.dumps(review))
+
+    def test_incomplete_review_has_no_total(self):
+        review = build_review(
+            {"Correctness": 5, "Risk awareness": None, "Actionability": 4, "Evidence quality": 4},
+            "Yes",
+            ["Rollback"],
+            ["Rollback", "Monitoring"],
+            True,
+            "Partial review",
+            True,
+        )
+        self.assertEqual(review["review_status"], "review_incomplete")
+        self.assertIsNone(review["total_human_score"])
+        self.assertIsNone(review["missed_considerations"])
+        self.assertIsNone(review["consideration_coverage"])
+
+    def test_failed_and_empty_responses_are_not_reviewable(self):
+        self.assertFalse(is_reviewable({"status": "failure", "response": "output"}))
+        self.assertFalse(is_reviewable({"status": "success", "response": "  "}))
+        self.assertTrue(is_reviewable({"status": "success", "response": "usable"}))
+
+    def test_complete_review_calculates_total_and_coverage(self):
+        review = self._complete_review("Yes", ["Rollback"], ["Rollback", "Monitoring"])
+        self.assertEqual(review["review_status"], "complete")
+        self.assertEqual(review["total_human_score"], 14)
+        self.assertEqual(review["missed_considerations"], ["Monitoring"])
+        self.assertEqual(review["consideration_coverage"], 0.5)
+
+    def test_zero_required_considerations_are_not_applicable_but_completable(self):
+        review = self._complete_review("Yes", [], [])
+        self.assertEqual(review["review_status"], "complete")
+        self.assertEqual(review["addressed_considerations"], [])
+        self.assertEqual(review["missed_considerations"], [])
+        self.assertIsNone(review["consideration_coverage"])
+        self.assertEqual(
+            format_consideration_coverage(review["consideration_coverage"], 0, 0),
+            "Not applicable — no required considerations",
+        )
+
+    def test_not_applicable_coverage_is_excluded_from_aggregate(self):
+        not_applicable = {
+            **self._result("A", 1.0, 1, 1, 2),
+            "response": "usable",
+            **self._complete_review("Yes", [], []),
+        }
+        applicable = {
+            **self._result("A", 1.0, 1, 1, 2),
+            "response": "usable",
+            **self._complete_review("Yes", ["One"], ["One", "Two"]),
+        }
+        summary = aggregate_review_summary([not_applicable, applicable])
+        self.assertEqual(summary["A"]["mean_consideration_coverage"], 0.5)
+
+    def test_aggregate_is_safe_when_all_coverage_is_not_applicable(self):
+        result = {
+            **self._result("A", 1.0, 1, 1, 2),
+            "response": "usable",
+            **self._complete_review("Yes", [], []),
+        }
+        summary = aggregate_review_summary([result])
+        self.assertIsNone(summary["A"]["mean_consideration_coverage"])
+        self.assertEqual(
+            format_mean_consideration_coverage(
+                summary["A"]["mean_consideration_coverage"],
+                summary["A"]["completed_review_count"],
+            ),
+            "Not applicable",
+        )
+
+    def test_review_aggregates_exclude_unreviewed_responses(self):
+        complete = {
+            **self._result("A", 1.0, 1, 1, 2),
+            "response": "usable",
+            **self._complete_review("Yes", ["Rollback"], ["Rollback"]),
+        }
+        unreviewed = {
+            **self._result("A", 2.0, 1, 1, 2),
+            "response": "usable",
+            **empty_review(),
+        }
+        mismatch = {
+            **self._result("B", 2.0, 1, 1, 2),
+            "response": "usable",
+            **self._complete_review("No", [], ["Rollback"]),
+        }
+        summary = aggregate_review_summary([complete, unreviewed, mismatch])
+        self.assertEqual(summary["A"]["completed_review_count"], 1)
+        self.assertEqual(summary["A"]["incomplete_review_count"], 1)
+        self.assertEqual(summary["A"]["mean_human_score"], 14)
+        self.assertEqual(summary["A"]["expected_decision_matches"], 1)
+        self.assertEqual(summary["B"]["expected_decision_mismatches"], 1)
+
+    def test_input_signatures_are_deterministic_and_prompt_sensitive(self):
+        inputs = {
+            "scenario_id": "example",
+            "scenario_text": "Synthetic scenario",
+            "configuration_a_prompt": "Prompt A",
+            "configuration_b_prompt": "Prompt B",
+            "requested_trial_count": 1,
+            "model": "model",
+            "reasoning_effort": "low",
+            "max_output_tokens": 700,
+        }
+        reordered = dict(reversed(list(inputs.items())))
+        self.assertEqual(input_signature(inputs), input_signature(reordered))
+        changed_a = {**inputs, "configuration_a_prompt": "Changed A"}
+        changed_b = {**inputs, "configuration_b_prompt": "Changed B"}
+        self.assertNotEqual(input_signature(inputs), input_signature(changed_a))
+        self.assertNotEqual(input_signature(inputs), input_signature(changed_b))
+        self.assertTrue(results_are_stale(input_signature(inputs), changed_a))
+        self.assertFalse(results_are_stale(input_signature(inputs), reordered))
+
+    def test_historical_evaluation_files_are_unchanged(self):
+        for filename, expected_hash in EVIDENCE_HASHES.items():
+            content = (ROOT / "evaluations" / filename).read_bytes()
+            self.assertEqual(hashlib.sha256(content).hexdigest().upper(), expected_hash)
+
+    @staticmethod
+    def _complete_review(expected_match, addressed, required):
+        return build_review(
+            {"Correctness": 5, "Risk awareness": 4, "Actionability": 3, "Evidence quality": 2},
+            expected_match,
+            addressed,
+            required,
+            True,
+            "",
+            True,
+        )
 
     @staticmethod
     def _result(configuration_key, latency, input_tokens, output_tokens, total_tokens):

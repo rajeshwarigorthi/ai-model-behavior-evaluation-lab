@@ -8,6 +8,14 @@ AI product teams need more than a working model call: they need repeatable evide
 
 Model-behavior evaluation matters because small changes in role, scope, and requested evidence can materially change a model's recommendation. A side-by-side experiment makes those differences visible without treating model output as an objective verdict.
 
+## Who this product is for
+
+This is an internal evaluation tool, not a customer-facing chatbot. Its primary user is an AI Product Manager or AI product team deciding whether a proposed prompt change should be released. Configuration A represents the current prompt, while Configuration B represents the proposed change. Engineers or prompt specialists may author the prompts; the PM defines success criteria, scenarios, unacceptable behavior, and launch thresholds, then uses the resulting evidence to make or recommend the release decision.
+
+## What decision does it support?
+
+> Should the product team keep the current prompt, release the proposed prompt, improve it and retest, or conclude that there is not yet a clear winner?
+
 ## Experiment design
 
 The lab sends the same selected synthetic production-migration scenario to `gpt-5.6-luna` through the OpenAI Responses API. Each **Run evaluation** click makes two independent requests with low reasoning effort and a 700-output-token limit:
@@ -46,6 +54,12 @@ The aggregate table reports successful and failed trial counts plus descriptive 
 
 These metrics do not establish statistical significance or prove that one prompt is consistently faster or better. Version 0.3 uses small evaluator-selected trial counts, does not randomize the first configuration within a trial set, and does not control external service or network conditions. A future version should add blinded pairwise quality evaluation so reviewers can compare responses without seeing their prompt identity.
 
+## Version 0.4 — Trustworthy human review
+
+Each successful response now begins as **Not reviewed** and receives its own human-review record. A review can be completed only after all four rubric scores, an expected-decision assessment, and the required-considerations review are provided. Incomplete reviews are excluded from quality aggregates rather than treated as zero.
+
+The app preserves prior results when inputs change, detects changes with a deterministic input signature, disables review controls for stale results, and suppresses winner claims until the evaluation is rerun. Review summaries report completion, expected-decision agreement, human scores, and consideration coverage without using the model to grade itself.
+
 ## Human-evaluation rubric
 
 An evaluator assigns each response a score from 1 to 5 on four dimensions:
@@ -74,10 +88,10 @@ flowchart LR
 
 | Prompt configuration | Latency | Total tokens | Human quality score |
 |---|---:|---:|---:|
-| Configuration A — General Analysis | 8.51 seconds | 358 | 18/20 |
-| Configuration B — Operational Readiness Analysis | 4.17 seconds | 361 | 20/20 |
+| Configuration A — General Analysis | 4.55 seconds | 364 | 18/20 |
+| Configuration B — Operational Readiness Analysis | 3.56 seconds | 353 | 20/20 |
 
-**Winner: Configuration B.** In this run, Configuration B produced the more operationally actionable response and was approximately 51% faster, while token usage was nearly identical. This is a single observation: one run is insufficient to conclude that Configuration B is consistently faster or better.
+**Winner: Configuration B.** In this run, Configuration B produced the more operationally actionable response, was approximately 22% faster, and used about 3% fewer tokens. This is a single observation: one run is insufficient to conclude that Configuration B is consistently faster or better.
 
 The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_001.json`](evaluations/model_behavior_evaluation_run_001.json).
 
