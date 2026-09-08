@@ -1,6 +1,7 @@
 """Offline evidence validation and scenario-level release gates."""
 from copy import deepcopy
 from math import isfinite
+from audit_logic import validate_plan
 from evaluation_logic import aggregate_review_summary, aggregate_trial_results, input_signature, build_review, SCORE_DIMENSIONS
 
 
@@ -30,6 +31,8 @@ def import_evidence(document):
             if not isinstance(run.get(field), str) or not run[field]:
                 raise ValueError("Missing run metadata.")
         inputs = run["evaluation_inputs"]
+        if run.get("evaluation_plan") is not None:
+            validate_plan(run["evaluation_plan"], inputs)
         if type(run["requested_trial_count"]) is not int or run["requested_trial_count"] not in range(1, 6):
             raise ValueError("Unsupported trial count.")
         if not isinstance(run["run_id"], str) or not run["run_id"] or run["run_id"] in validated:
@@ -56,6 +59,10 @@ def import_evidence(document):
             raise ValueError("Incomplete trial record set.")
         seen = set()
         for result in records:
+            if "review_history" in result:
+                history = result["review_history"]
+                if not isinstance(history, list) or any(not isinstance(item, dict) or not isinstance(item.get("snapshot"), dict) or item.get("revision") != i + 1 or not isinstance(item.get("timestamp_utc"), str) for i, item in enumerate(history)):
+                    raise ValueError("Invalid review history")
             for field in ("configuration_name", "model", "prompt_version", "prompt"):
                 if not isinstance(result.get(field), str):
                     raise ValueError("Missing request metadata.")
@@ -124,7 +131,19 @@ def release_report(runs, scenario_ids, criteria):
             complete = q["completed_review_count"]
             ready = count >= criteria["minimum_trials"] and q["incomplete_review_count"] == 0 and complete > 0
             passed = ready and p["failed_trial_count"] / count <= criteria["maximum_failure_rate"] and q["expected_decision_matches"] / complete >= criteria["minimum_match_rate"] and q["mean_human_score"] >= criteria["minimum_score"] and p["mean_latency_seconds"] <= criteria["maximum_latency"] and (p["mean_total_tokens"] is not None and p["mean_total_tokens"] <= criteria["maximum_tokens"]) and not any(x.get("unacceptable_behavior") for x in records if x["configuration_key"] == key)
-            rows.append({"Scenario": sid, "Configuration": key, "Requests": count, "Reviewed": complete, "Mean score": q["mean_human_score"], "Mean latency": p["mean_latency_seconds"], "Mean tokens": p["mean_total_tokens"], "Ready": ready, "Pass": bool(passed)})
+            gates = [
+                ("Minimum requests", count, criteria["minimum_trials"], count >= criteria["minimum_trials"]),
+                ("Incomplete reviews", q["incomplete_review_count"], 0, q["incomplete_review_count"] == 0),
+                ("Completed reviews", complete, 1, complete > 0),
+                ("Maximum failure rate", p["failed_trial_count"] / count if count else None, criteria["maximum_failure_rate"], count > 0 and p["failed_trial_count"] / count <= criteria["maximum_failure_rate"]),
+                ("Minimum decision match rate", q["expected_decision_matches"] / complete if complete else None, criteria["minimum_match_rate"], complete > 0 and q["expected_decision_matches"] / complete >= criteria["minimum_match_rate"]),
+                ("Minimum mean score", q["mean_human_score"], criteria["minimum_score"], q["mean_human_score"] is not None and q["mean_human_score"] >= criteria["minimum_score"]),
+                ("Maximum mean latency", p["mean_latency_seconds"], criteria["maximum_latency"], p["mean_latency_seconds"] is not None and p["mean_latency_seconds"] <= criteria["maximum_latency"]),
+                ("Maximum mean tokens", p["mean_total_tokens"], criteria["maximum_tokens"], p["mean_total_tokens"] is not None and p["mean_total_tokens"] <= criteria["maximum_tokens"]),
+                ("Unacceptable behavior flags", sum(bool(x.get("unacceptable_behavior")) for x in records if x["configuration_key"] == key), 0, not any(x.get("unacceptable_behavior") for x in records if x["configuration_key"] == key)),
+            ]
+            references = [{"run_id": r["run_id"], "trial": x["trial_number"], "configuration": key} for r in selected for x in r["individual_trial_results"] if x["configuration_key"] == key]
+            rows.append({"Scenario": sid, "Configuration": key, "Requests": count, "Reviewed": complete, "Mean score": q["mean_human_score"], "Mean latency": p["mean_latency_seconds"], "Mean tokens": p["mean_total_tokens"], "Ready": ready, "Pass": bool(passed), "Gates": [{"gate": name, "observed": value, "threshold": threshold, "passed": bool(ok)} for name, value, threshold, ok in gates], "Evidence": references})
     if missing or not rows or any(not x["Ready"] for x in rows):
         recommendation = "Insufficient evidence"
     else:

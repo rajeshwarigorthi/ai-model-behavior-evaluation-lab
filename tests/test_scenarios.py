@@ -75,7 +75,7 @@ class ScenarioLibraryTests(unittest.TestCase):
 
     def test_repository_contains_no_secret_patterns(self):
         excluded_parts = {".git", ".venv", "__pycache__"}
-        text_suffixes = {".py", ".json", ".md", ".txt", ".example", ".gitignore"}
+        text_suffixes = {".py", ".json", ".md", ".txt", ".example", ".gitignore", ".yml", ".yaml"}
         for path in ROOT.rglob("*"):
             if not path.is_file() or excluded_parts.intersection(path.parts):
                 continue
@@ -86,7 +86,7 @@ class ScenarioLibraryTests(unittest.TestCase):
                 self.assertIsNone(pattern.search(content), str(path.relative_to(ROOT)))
 
     def test_app_has_valid_python_syntax(self):
-        for filename in ("app.py", "evaluation_logic.py"):
+        for filename in ("app.py", "evaluation_logic.py", "release_logic.py", "workspace_ui.py", "audit_logic.py", "audit_ui.py"):
             source = (ROOT / filename).read_text(encoding="utf-8")
             compile(source, filename, "exec")
 
