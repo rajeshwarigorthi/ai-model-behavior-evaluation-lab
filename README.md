@@ -16,7 +16,26 @@ This is an internal evaluation tool, not a customer-facing chatbot. Its primary 
 
 > Should the product team keep the current prompt, release the proposed prompt, improve it and retest, or conclude that there is not yet a clear winner?
 
-## Experiment design
+## Version 0.6 — Auditable release decisions (local)
+
+This increment adds five audit features without changing historical Runs 001–003:
+
+- **Gate explanations:** inspect every gate's observed value, threshold, and pass/fail result, with links to the contributing saved responses. Missing or inconsistent scenario evidence is reported separately and blocks a release recommendation.
+- **Frozen evaluation plans:** before a new run, select planned and critical scenarios, review thresholds and hard-blocker definitions, and click **Freeze evaluation plan**. The plan records prompt text, model settings, scenario/reference snapshots, trial count per scenario, timestamp, version, and a content hash. Editing the draft requires a new version before execution. Each run carries its frozen snapshot; earlier versions remain available in the session and plan download. Execution remains one selected scenario at a time; changing that scenario requires freezing a matching version. Plans frozen after evidence exists in the session are explicitly labeled post-results. Release criteria and scenario selections that differ from a run's plan are flagged and exported with the decision.
+- **Paired regressions:** compare B minus A within each run and trial for human score, latency, and total tokens, plus per-scenario means and valid pair counts. Missing/failed outputs do not become zero-valued measurements. Score differences require both reviews complete. Different prompt/scenario input versions stay in separate comparison groups. Explicitly designated critical scenarios highlight lower scores, decision-match regressions, new unsafe behavior, unusable B outputs, or increased latency/token usage. These are descriptive tradeoffs, not an overall winner or statistical significance.
+- **Review provenance:** enter a stable **Response reviewer ID** alias to save review changes. Changed review snapshots retain revision numbers, UTC timestamps, reviewer aliases, and identity-reveal status. Repeated unchanged renders do not create extra revisions. Revealing configuration identities is irreversible in the recorded provenance, even after switching back to anonymous labels. Imported legacy reviews remain unattributed; their historical authorship is not inferred.
+- **Offline PR validation:** the GitHub Actions workflow runs syntax checks, all offline tests, historical-artifact integrity checks, the repository secret-pattern scan (including YAML), and whitespace validation on pull requests and pushes to main. No API credentials are provided; UI smoke tests block client initialization. Dependency installation still requires internet access. The workflow will run after publication; making its check mandatory requires separate repository branch-protection configuration.
+
+Use **Download workspace and decision JSON** to retain runs, review histories, embedded plans, and the decision report; use **Download evaluation plans** to retain all frozen draft versions, including plans not yet executed. Existing evidence imports preserve embedded plan/provenance data and validate plan signatures. Local hashes and timestamps detect accidental inconsistencies but are not tamper-proof signatures or authenticated preregistration. Reviewer aliases are self-reported, not authenticated multi-user identities. Previously viewed or externally edited files cannot establish independent blinded review.
+
+Offline validation:
+
+```powershell
+.venv\Scripts\python.exe -m compileall -q app.py evaluation_logic.py release_logic.py workspace_ui.py audit_logic.py audit_ui.py tests
+.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+## Experiment execution
 
 The lab sends the same selected synthetic production-migration scenario to `gpt-5.6-luna` through the OpenAI Responses API. Each trial makes two sequential requests with low reasoning effort and a 700-output-token limit:
 
@@ -152,6 +171,9 @@ The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_0
 ├── evaluation_logic.py
 ├── release_logic.py
 ├── workspace_ui.py
+├── audit_logic.py
+├── audit_ui.py
+├── .github/workflows/offline-validation.yml
 ├── data/
 │   └── scenarios.json
 ├── evaluations/
@@ -160,7 +182,8 @@ The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_0
 │   └── model_behavior_evaluation_run_003.json
 ├── tests/
 │   ├── test_scenarios.py
-│   └── test_release_workflow.py
+│   ├── test_release_workflow.py
+│   └── test_audit_workflow.py
 ├── .env.example
 ├── .gitignore
 ├── LICENSE

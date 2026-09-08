@@ -26,6 +26,8 @@ from evaluation_logic import (
 )
 from release_logic import prompt_identity, output_status
 from workspace_ui import workspace_controls, release_workspace, archive_active
+from audit_ui import plan_controls
+from audit_logic import record_review, note_reveal
 
 
 MODEL = "gpt-5.6-luna"
@@ -236,11 +238,15 @@ current_inputs = {
     "required_considerations": required_reference,
 }
 
+frozen_plan = plan_controls(current_inputs, scenarios)
+
 if st.button("Run evaluation", type="primary"):
     if not scenario.strip():
         st.error("Enter a scenario before running the evaluation.")
     elif scenario != selected_scenario["scenario"] and not reference_confirmed:
         st.error("Confirm or update the reference labels for the edited scenario before running.")
+    elif frozen_plan is None:
+        st.error("Freeze a matching evaluation plan before running.")
     elif not os.environ.__contains__("OPENAI_API_KEY"):
         st.error("OPENAI_API_KEY is missing. Set it in the Windows environment and restart the app.")
     else:
@@ -294,6 +300,7 @@ if st.button("Run evaluation", type="primary"):
                 "required_considerations": required_reference,
                 "scenario": scenario,
                 "evaluation_inputs": current_inputs,
+                "evaluation_plan": frozen_plan,
                 "input_signature": input_signature(current_inputs),
                 "requested_trial_count": trial_count,
                 "total_expected_api_request_count": request_count,
@@ -313,6 +320,11 @@ if st.button("Run evaluation", type="primary"):
 
 evaluation = st.session_state.get("evaluation")
 if evaluation:
+    if not blind_review:
+        for recorded_result in evaluation["individual_trial_results"]:
+            note_reveal(recorded_result)
+    reviewer_id = st.text_input("Response reviewer ID", key="response_reviewer_id")
+    st.caption("Use a stable reviewer alias. Named review changes are timestamped and retained as revisions; legacy reviews remain unattributed until explicitly reviewed. Identity is self-reported, not authenticated.")
     evaluation.setdefault("blind_labels", {"A": "Response X", "B": "Response Y"})
     def review_label(key):
         return evaluation["blind_labels"][key] if blind_review else (CONFIGURATION_A if key == "A" else CONFIGURATION_B)
@@ -457,9 +469,14 @@ if evaluation:
                         mark_complete,
                     )
                     if not stale_results:
-                        result.update(review)
-                        result["unacceptable_behavior"] = unacceptable
+                        if reviewer_id.strip():
+                            record_review(result, {**review, "unacceptable_behavior": unacceptable}, reviewer_id, not blind_review)
+                        if not reviewer_id.strip():
+                            review = {field: result.get(field, default) for field, default in empty_review().items()}
+                            st.info("Enter a reviewer ID to save review changes.")
                         result["review_mode"] = "blind" if blind_review and result.get("review_mode") != "identified" else "identified"
+                        with st.expander("Review provenance and revisions"):
+                            st.write(result.get("review_history") or "No attributed review revisions recorded.")
                     else:
                         review = {field: result.get(field, default) for field, default in empty_review().items()}
                     status_label = {

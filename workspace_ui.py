@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 import streamlit as st
 from evaluation_logic import input_signature, SCORE_DIMENSIONS
 from release_logic import import_evidence, release_report
+from audit_ui import audit_report_ui
+from audit_logic import validate_plan
 
 
 def archive_active():
@@ -47,6 +49,11 @@ def workspace_controls(scenario_ids):
                     raise ValueError("File too large")
                 document = json.loads(upload.getvalue())
                 imported = import_evidence(document)
+                imported_plans = document.get("evaluation_plans", [])
+                if not isinstance(imported_plans, list):
+                    raise ValueError("Invalid plan list")
+                for imported_plan in imported_plans:
+                    validate_plan(imported_plan)
                 if any(r["scenario_id"] not in scenario_ids for r in imported.values()):
                     raise ValueError("Unknown scenario")
                 existing = st.session_state["saved_runs"]
@@ -54,6 +61,10 @@ def workspace_controls(scenario_ids):
                     raise ValueError("Conflicting existing run")
                 archive_active()
                 existing.update(imported)
+                plans = st.session_state.setdefault("evaluation_plans", [])
+                for imported_plan in imported_plans:
+                    if imported_plan not in plans:
+                        plans.append(deepcopy(imported_plan))
                 if "release_decision" in document:
                     st.session_state["release_decision"] = document["release_decision"]
                 st.success("Evidence imported. Select a run to resume.")
@@ -87,23 +98,39 @@ def release_workspace(scenarios):
         }
         unacceptable_definition = st.text_area("Define unacceptable behavior / hard release blockers", value="Any unsafe launch recommendation or material unsupported assertion.")
     selected = [saved[k] for k in chosen]
+    critical_ids = st.multiselect("Critical scenarios for regression review", ids)
+    plan_deviations = []
+    for run in selected:
+        plan = run.get("evaluation_plan")
+        if not plan:
+            plan_deviations.append(run["run_id"] + ": no frozen plan (legacy evidence)")
+        else:
+            frozen_criteria = plan["payload"]["criteria"]
+            if any(frozen_criteria.get(k) != v for k, v in criteria.items()) or frozen_criteria.get("unacceptable_behavior_definition") != unacceptable_definition or set(ids) != {s["id"] for s in plan["payload"]["scenarios"]} or set(critical_ids) != set(plan["payload"]["critical_scenario_ids"]):
+                plan_deviations.append(run["run_id"] + ": post-results criteria or scenario selection differs from frozen plan")
+            if plan.get("post_results"):
+                plan_deviations.append(run["run_id"] + ": plan frozen after evidence existed")
+    for deviation in plan_deviations:
+        st.warning(deviation)
     report = release_report(selected, ids, criteria)
-    st.dataframe(report["rows"], hide_index=True)
+    st.dataframe([{k: v for k, v in row.items() if k not in ("Gates", "Evidence")} for row in report["rows"]], hide_index=True)
+    analysis = audit_report_ui(report, selected, critical_ids)
     st.info("Evidence recommendation: " + report["recommendation"])
     for reason in report["reasons"]:
         st.caption(reason)
     st.caption("Recommendations apply to saved run inputs and completed reviews. They are descriptive gates, not statistical evidence of superiority.")
-    decision_inputs = {"runs": selected, "scenarios": ids, "criteria": criteria, "unacceptable_behavior_definition": unacceptable_definition}
+    decision_inputs = {"runs": selected, "scenarios": ids, "criteria": criteria, "unacceptable_behavior_definition": unacceptable_definition, "critical_scenario_ids": critical_ids}
     signature = input_signature(decision_inputs)
     reviewer = st.text_input("Decision owner")
     outcome = st.selectbox("PM decision", ["Not decided", "Keep A", "Release B", "Improve and retest", "Insufficient evidence", "No clear winner"])
     rationale = st.text_area("Release decision rationale (explain any override)")
     if st.button("Record release decision", disabled=outcome == "Not decided" or not reviewer.strip() or not rationale.strip()):
         st.session_state["release_decision"] = {"owner": reviewer, "decision": outcome, "rationale": rationale, "timestamp_utc": datetime.now(timezone.utc).isoformat(), "evidence_signature": signature, "criteria": criteria, "scenario_ids": ids, "run_ids": chosen, "recommendation": report, "unacceptable_behavior_definition": unacceptable_definition}
+        st.session_state["release_decision"].update(plan_deviations=deepcopy(plan_deviations), paired_analysis=deepcopy(analysis), critical_scenario_ids=list(critical_ids))
     decision = deepcopy(st.session_state.get("release_decision"))
     if decision:
         decision["stale"] = decision.get("evidence_signature") != signature
         st.write("Recorded decision: " + str(decision.get("decision")))
         if decision["stale"]:
             st.warning("The decision record is stale: evidence or release criteria have changed. Record a new decision after review.")
-    st.download_button("Download workspace and decision JSON", json.dumps({"schema_version": "0.5", "runs": list(saved.values()), "release_decision": decision}, indent=2), file_name="evaluation_workspace.json", mime="application/json")
+    st.download_button("Download workspace and decision JSON", json.dumps({"schema_version": "0.6", "runs": list(saved.values()), "release_decision": decision, "evaluation_plans": st.session_state.get("evaluation_plans", [])}, indent=2), file_name="evaluation_workspace.json", mime="application/json")
