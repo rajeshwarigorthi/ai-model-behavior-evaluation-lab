@@ -38,6 +38,13 @@ EVIDENCE_HASHES = {
     "model_behavior_evaluation_run_002.json": "9CB91EAD3BA99D4C672DF0B94DFC55B2804566323E50B9E1711458F13B6A821A",
     "model_behavior_evaluation_run_003.json": "CEE42531A2345903934EDE2607A0F7A43FF59FBA720D25AA14B4B44D4E20FEE7",
 }
+# Git checkout may use LF on Linux or CRLF on Windows. Accept only the
+# independently verified exact hashes, without rewriting historical evidence.
+EVIDENCE_LF_HASHES = {
+    "model_behavior_evaluation_run_001.json": "EC1EC834679D3E78C374CD54373E57962E50CB503C038C5F88EF0B38671B2580",
+    "model_behavior_evaluation_run_002.json": "3DEB4099DEA2E6AEAFB3E06A3397BA75A4F9B281201789FC79A7CCCEEA4AA772",
+    "model_behavior_evaluation_run_003.json": "2AB6473A0567547C85B879AF5446517A70B27E71763380140D2A134582478728",
+}
 SECRET_PATTERNS = (
     re.compile(r"sk-[A-Za-z0-9_-]{16,}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
@@ -268,7 +275,8 @@ class ScenarioLibraryTests(unittest.TestCase):
     def test_historical_evaluation_files_are_unchanged(self):
         for filename, expected_hash in EVIDENCE_HASHES.items():
             content = (ROOT / "evaluations" / filename).read_bytes()
-            self.assertEqual(hashlib.sha256(content).hexdigest().upper(), expected_hash)
+            self.assertIn(hashlib.sha256(content).hexdigest().upper(), {expected_hash, EVIDENCE_LF_HASHES[filename]})
+            self.assertEqual(hashlib.sha256(content.replace(b"\r\n", b"\n")).hexdigest().upper(), EVIDENCE_LF_HASHES[filename])
 
     @staticmethod
     def _complete_review(expected_match, addressed, required):
