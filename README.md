@@ -18,7 +18,7 @@ This is an internal evaluation tool, not a customer-facing chatbot. Its primary 
 
 ## Experiment design
 
-The lab sends the same selected synthetic production-migration scenario to `gpt-5.6-luna` through the OpenAI Responses API. Each **Run evaluation** click makes two independent requests with low reasoning effort and a 700-output-token limit:
+The lab sends the same selected synthetic production-migration scenario to `gpt-5.6-luna` through the OpenAI Responses API. Each trial makes two sequential requests with low reasoning effort and a 700-output-token limit:
 
 - **Configuration A — General Analysis:** asks a technical program manager to analyze the situation and recommend whether migration should be approved.
 - **Configuration B — Operational Readiness Analysis:** explicitly asks about combined-workload performance, dependencies, rollback readiness, operational risk, missing evidence, and required mitigations.
@@ -59,6 +59,22 @@ These metrics do not establish statistical significance or prove that one prompt
 Each successful response now begins as **Not reviewed** and receives its own human-review record. A review can be completed only after all four rubric scores, an expected-decision assessment, and the required-considerations review are provided. Incomplete reviews are excluded from quality aggregates rather than treated as zero.
 
 The app preserves prior results when inputs change, detects changes with a deterministic input signature, disables review controls for stale results, and suppresses winner claims until the evaluation is rerun. Review summaries report completion, expected-decision agreement, human scores, and consideration coverage without using the model to grade itself.
+
+## Release-decision workflow (local Version 0.5)
+
+The workspace retains previous experiments when another evaluation starts. Download **workspace and decision JSON** to preserve runs and reviews across sessions; upload it under **Saved experiments — import and resume** and select **Resume selected review** to restore the original inputs and individual review controls. Import validates the input signature, trial identities, and review values and recomputes summaries. Conflicting run IDs are rejected. Files stay on your computer until you choose to share them. The signature detects inconsistent inputs; it is not proof of authorship. Historical Runs 001–003 remain immutable evidence; they predate the signed review schema and cannot be resumed in this workflow.
+
+Review starts in blind mode with stable, randomly assigned Response X/Y labels. Configuration identity, execution position, latency, and token usage are hidden in the response-review area. The app provides 1–5 scoring anchors and dimension guidance. Reviewers can flag unacceptable behavior on each response. Blinding is an aid: prompt authors may recognize response style, and revealing identities or reading the evidence JSON removes anonymity. Reveal configurations after reviewing to open the release workspace.
+
+Select saved runs and the scenarios required for a release. The report rejects mixed prompt/model settings and conflicting scenario references, and shows coverage and gate results per scenario and configuration. Configure minimum trials, human score and expected-decision match rate, plus maximum failure rate, latency and tokens. An unacceptable-behavior flag blocks that configuration for that scenario. Every required scenario must pass: a high average cannot offset a failed case. Example thresholds are editable and must be chosen by the PM, not treated as validated release policy.
+
+The report recommends **Keep A**, **Release B**, **Improve and retest**, **Insufficient evidence**, or **No clear winner**. The PM records an owner, decision, and rationale, including reasons for any override. The exported record captures criteria and selected evidence; it becomes stale when those inputs change. Passing gates is descriptive evidence, not statistical superiority.
+
+Scenario reference decisions and considerations are editable. Changing scenario text requires confirming the references, and references are included in the input signature so changes disable review of stale results. Prompt identities are derived from the exact prompt text, including whitespace. Empty and incomplete outputs are explicitly classified and excluded from successful-output and quality summaries while retaining diagnostic evidence.
+
+Choose 1–5 trials (2–10 requests). A random starting configuration is recorded for each run and execution then alternates; 2 or 4 trials balance first positions exactly. Odd counts still have one extra first position. Requests use a 60-second timeout with SDK retries disabled so retries cannot silently inflate the displayed request count. Zero required considerations need no confirmation and have null coverage, excluded from coverage averages.
+
+Run offline validation with `.venv\Scripts\python.exe -m unittest discover -s tests -v`. Tests use synthetic fixtures and block client initialization during UI tests.
 
 ## Human-evaluation rubric
 
@@ -134,6 +150,8 @@ The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_0
 .
 ├── app.py
 ├── evaluation_logic.py
+├── release_logic.py
+├── workspace_ui.py
 ├── data/
 │   └── scenarios.json
 ├── evaluations/
@@ -141,7 +159,8 @@ The exported evidence is stored at [`evaluations/model_behavior_evaluation_run_0
 │   ├── model_behavior_evaluation_run_002.json
 │   └── model_behavior_evaluation_run_003.json
 ├── tests/
-│   └── test_scenarios.py
+│   ├── test_scenarios.py
+│   └── test_release_workflow.py
 ├── .env.example
 ├── .gitignore
 ├── LICENSE
@@ -169,7 +188,7 @@ Open a new PowerShell window after `setx`, return to the project directory, and 
 
 Open the local URL printed by Streamlit, typically `http://localhost:8501`.
 
-The app initializes `OpenAI()` without passing a key, so the official SDK reads `OPENAI_API_KEY` from the Windows environment. Never commit a real key or place one in `.env.example`. OpenAI API billing is separate from a ChatGPT subscription.
+The app initializes the OpenAI client without passing a key, so the official SDK reads `OPENAI_API_KEY` from the Windows environment. Automatic retries are disabled and requests have a 60-second timeout. Never commit a real key or place one in `.env.example`. OpenAI API billing is separate from a ChatGPT subscription.
 
 ## Synthetic data and privacy
 
@@ -180,21 +199,20 @@ The included scenario is synthetic and is intended only to demonstrate an evalua
 - A single run cannot establish statistical significance or consistent superiority.
 - Model output and latency can vary across requests and service conditions.
 - Human scores reflect one evaluator and are not calibrated across reviewers.
-- The prototype compares two prompts and one model against one selected scenario at a time.
+- Execution compares two prompts and one model against one selected scenario at a time; the release report combines saved evidence across selected scenarios.
 - Repeated-trial aggregates are descriptive and use a maximum of five trials.
 - Sequential requests may still be affected by changing network or service conditions.
-- Quality scoring is not blinded, so prompt identity may influence the evaluator.
+- Anonymous response labels hide configuration identity and performance during review, but response style can reveal identity. This is not a controlled blinded study.
 - Results persist only for the active Streamlit session unless downloaded.
 - The lab does not include a database, authentication, user tracking, automated retry, or production monitoring.
 
 ## Next steps
 
-- Run repeated trials for each prompt configuration.
-- Evaluate multiple synthetic scenarios and risk profiles.
-- Add calibrated human reviewers and optional automated graders.
+- Collect larger, balanced datasets across scenarios and risk profiles.
+- Add multi-reviewer calibration, agreement measurement, and optional automated graders.
 - Capture per-run cost estimates alongside token usage.
 - Compare distributions statistically rather than relying on a single result.
-- Add reproducible experiment identifiers and structured rubric guidance.
+- Add controlled blinded pairwise comparisons and durable multi-user storage.
 
 ## License
 

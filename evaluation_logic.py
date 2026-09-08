@@ -4,16 +4,19 @@ from statistics import mean, median
 
 
 CONFIGURATION_KEYS = ("A", "B")
-ALLOWED_TRIAL_COUNTS = (1, 3, 5)
+ALLOWED_TRIAL_COUNTS = (1, 2, 3, 4, 5)
 SCORE_DIMENSIONS = ("Correctness", "Risk awareness", "Actionability", "Evidence quality")
 EXPECTED_DECISION_ASSESSMENTS = ("Yes", "No", "Unclear")
 
 
-def execution_order(trial_number):
+def execution_order(trial_number, first_configuration="A"):
     """Return sequential configuration order for a one-based trial number."""
     if not isinstance(trial_number, int) or trial_number < 1:
         raise ValueError("trial_number must be a positive integer")
-    return CONFIGURATION_KEYS if trial_number % 2 else tuple(reversed(CONFIGURATION_KEYS))
+    if first_configuration not in CONFIGURATION_KEYS:
+        raise ValueError("Invalid first configuration")
+    order = CONFIGURATION_KEYS if first_configuration == "A" else ("B", "A")
+    return order if trial_number % 2 else tuple(reversed(order))
 
 
 def expected_request_count(trial_count):
@@ -126,6 +129,7 @@ def build_review(
 ):
     """Build a complete or incomplete review without inventing missing values."""
     review = empty_review()
+    considerations_reviewed = considerations_reviewed or not required_considerations
     review["human_scores"] = dict(human_scores)
     review["expected_decision_match"] = expected_decision_match
     review["reviewer_notes"] = reviewer_notes.strip() or None
